@@ -1,0 +1,7 @@
+{
+  "agenda": "https://press.vatican.va/content/salastampa/es/bollettino/pubblico/2026/09/21/210926d.html",
+  "avion": "https://opendata.adsb.fi/api/v3",
+  "clima": "https://api.open-meteo.com/v1/forecast",
+  "user_agent": "papa-peru-vigilante",
+  "timeout_ms": 15000
+}

@@ -1,0 +1,34 @@
+{
+  "buenosaires-lima": {
+    "callsign": null,
+    "hex": null
+  },
+  "lima-chiclayo": {
+    "callsign": null,
+    "hex": null
+  },
+  "chiclayo-succhabamba": {
+    "callsign": null,
+    "hex": null
+  },
+  "succhabamba-chiclayo": {
+    "callsign": null,
+    "hex": null
+  },
+  "chiclayo-cusco": {
+    "callsign": null,
+    "hex": null
+  },
+  "cusco-pucallpa": {
+    "callsign": null,
+    "hex": null
+  },
+  "pucallpa-lima": {
+    "callsign": null,
+    "hex": null
+  },
+  "lima-roma": {
+    "callsign": null,
+    "hex": null
+  }
+}
