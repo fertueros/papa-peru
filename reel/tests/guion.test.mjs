@@ -4,18 +4,33 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, test } from "node:test";
+import vm from "node:vm";
 
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), "utf8");
-const agenda = JSON.parse(leer("../../site/data/agenda.json"));
+const agendaOficial = JSON.parse(leer("../../site/data/agenda.json"));
+const sandbox = {};
+vm.runInNewContext(leer("../correcciones.js"), sandbox);
+const { Correcciones } = sandbox;
+/* R13: el guion de cada parte se comprueba contra la agenda oficial + reel/partes/<n>/correcciones.json (la
+   corrección manda: la vigilia del 12 es en el Estadio Nacional, aunque el programa del 21-09 diga Monumental). */
+const correccionesDe = (parte) =>
+  existsSync(new URL(`../partes/${parte}/correcciones.json`, import.meta.url))
+    ? JSON.parse(leer(`../partes/${parte}/correcciones.json`))
+    : null;
+export const agendaDe = (parte) => Correcciones.aplicar(agendaOficial, correccionesDe(parte));
+const agenda = agendaDe("1-lima");
 const html = leer("../reel.html");
+// fotos de la web (site/data/agenda.json) y las propias del reel (reel/fotos.json, p. ej. el Estadio Nacional)
+const fotosReel = JSON.parse(leer("../fotos.json"));
+export const fotoDe = (id) => agenda.fotos[id] ?? fotosReel.fotos[id];
 const partes = readdirSync(new URL("../partes/", import.meta.url)).filter((p) =>
   existsSync(new URL(`../partes/${p}/guion.json`, import.meta.url)),
 );
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const PROHIBIDO = /\bcalles?\b|avenida|\bav\.|jirón|papam[oó]vil|en este momento|ahora mismo|en vivo/i;
 
-const parada = (id) => agenda.paradas.find((p) => p.id === id);
-const tramo = (id) => agenda.tramos.find((t) => t.id === id);
+const parada = (id, ag = agenda) => ag.paradas.find((p) => p.id === id);
+const tramo = (id, ag = agenda) => ag.tramos.find((t) => t.id === id);
 const horaDe = (iso) => iso.slice(11, 16);
 const diaDe = (iso) => {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
@@ -23,13 +38,13 @@ const diaDe = (iso) => {
 };
 
 /** Lo que la agenda dice de un dato declarado en el guion: hora, día y nombres de lugar admitidos. */
-function fuente(dato) {
+function fuente(dato, ag = agenda) {
   if (dato.parada) {
-    const p = parada(dato.parada);
+    const p = parada(dato.parada, ag);
     assert.ok(p, `parada desconocida en la agenda: ${dato.parada}`);
     return { iso: p.inicio, lugares: [p.lugar, p.ciudad, p.nombre] };
   }
-  const t = tramo(dato.tramo);
+  const t = tramo(dato.tramo, ag);
   assert.ok(t, `tramo desconocido en la agenda: ${dato.tramo}`);
   assert.ok(["salida", "llegada"].includes(dato.campo), `campo de tramo inválido: ${dato.campo}`);
   const lugares = dato.campo === "salida" ? [t.origen, t.salida_lugar, t.destino] : [t.destino, t.llegada_lugar];
@@ -115,7 +130,24 @@ export const diasDichos = (voz) =>
 
 // nombres propios que no son lugares, y palabras que solo van en mayúscula por empezar frase
 const NO_LUGAR = new Set(["León", "Hora Media"]);
-const INICIO = new Set(["A", "Y", "El", "La", "Los", "Las", "En", "Este", "Esta", "Ese", "Es", "Así", "Qué", "Hoy"]);
+const INICIO = new Set([
+  "A",
+  "Y",
+  "El",
+  "La",
+  "Los",
+  "Las",
+  "En",
+  "Este",
+  "Esta",
+  "Ese",
+  "Es",
+  "Así",
+  "Qué",
+  "Hoy",
+  "Vas",
+  "Cuéntame",
+]);
 /** Grupos de palabras en mayúscula de la voz («Teatro Municipal», «Catedral de Lima»). */
 export function nombresPropios(voz) {
   const re = /\p{Lu}\p{L}*(?:\s+(?:(?:de|del|de la|de los)\s+)?\p{Lu}\p{L}*)*/gu;
@@ -134,10 +166,10 @@ for (const c of Object.values(agenda.ciudades)) for (const n of c.nombre.split("
 for (const t of agenda.tramos) CIUDADES.add(t.origen).add(t.destino);
 
 /** Todos los errores de un trozo del guion frente a la agenda (vacío = cuadra). */
-export function erroresDe(trozo) {
+export function erroresDe(trozo, ag = agenda) {
   const err = [];
   const datos = trozo.datos ?? [];
-  const fuentes = datos.map((d) => ({ d, ...fuente(d) }));
+  const fuentes = datos.map((d) => ({ d, ...fuente(d, ag) }));
   // 1. datos ↔ agenda ↔ subtítulo
   for (const { d, iso, lugares } of fuentes) {
     const quien = d.parada ?? d.tramo;
@@ -190,21 +222,23 @@ export function erroresDe(trozo) {
 
 for (const nombre of partes) {
   const guion = JSON.parse(leer(`../partes/${nombre}/guion.json`));
+  const ag = agendaDe(nombre);
 
-  describe(`R1 · ${nombre}: el guion cuadra con la agenda oficial`, () => {
+  describe(`R1 · ${nombre}: el guion cuadra con la agenda oficial (+ correcciones del reel, R13)`, () => {
     for (const trozo of guion.trozos) {
       test(`${trozo.id}: horas, días y lugares de datos, subtítulo y voz coinciden con la agenda`, () => {
-        assert.deepEqual(erroresDe(trozo), []);
+        assert.deepEqual(erroresDe(trozo, ag), []);
       });
 
       test(`${trozo.id}: el mapa y la foto existen en la agenda y la escena en reel.html`, () => {
         for (const id of trozo.mapa?.paradas ?? []) {
-          const p = parada(id);
+          const p = parada(id, ag);
           assert.ok(p, `parada ${id}`);
           assert.ok(p.lat !== null, `${id}: solo lugares de la agenda con coordenadas`);
         }
-        for (const id of trozo.mapa?.tramos ?? []) assert.ok(tramo(id), `tramo ${id}`);
-        if (trozo.foto) assert.ok(agenda.fotos[trozo.foto], `foto ${trozo.foto}`);
+        for (const id of trozo.mapa?.tramos ?? []) assert.ok(tramo(id, ag), `tramo ${id}`);
+        for (const id of (trozo.fotos ?? []).filter(Boolean)) assert.ok(fotoDe(id), `foto ${id}`);
+        assert.equal(trozo.foto, undefined, "una foto por frase («fotos»), no una por escena (R12)");
         assert.match(html, new RegExp(`\\n {2}${trozo.escena}\\(`), `escena ${trozo.escena}`);
       });
     }
@@ -212,9 +246,9 @@ for (const nombre of partes) {
 }
 
 describe("R2 · los rótulos de veracidad están en reel.html", () => {
-  test("simulación, traslado aproximado y sujeto a cambios", () => {
+  test("simulación y sujeto a cambios (sin el rótulo de traslado: R2 modificado, Fernando 11-nov)", () => {
     assert.ok(html.includes("Simulación del trayecto previsto · no es seguimiento en vivo"));
-    assert.ok(html.includes("traslado · trayecto aproximado, no es la ruta real"));
+    assert.ok(!html.includes("traslado · trayecto aproximado, no es la ruta real"));
     assert.ok(html.includes("sujeto a cambios"));
   });
 });
@@ -253,7 +287,7 @@ describe("R1 · el control detecta alteraciones (casos negativos)", () => {
   });
   test("tarde-12: un lugar real de la agenda pero de otro acto («Gran Teatro Nacional»)", () => {
     rojo(
-      alterado("tarde-12", "voz", "Estadio Monumental", "Gran Teatro Nacional"),
+      alterado("tarde-12", "voz", "Estadio Nacional", "Gran Teatro Nacional"),
       /«Gran Teatro Nacional» no es un lugar declarado/,
     );
   });
@@ -275,5 +309,133 @@ describe("R1 · el control detecta alteraciones (casos negativos)", () => {
     t.texto = t.texto.replace("Gran Teatro Nacional", "Teatro Municipal");
     t.voz = t.voz.replace("Gran Teatro Nacional", "Teatro Municipal");
     rojo(erroresDe(t), /«Teatro Municipal» no es el lugar de encuentro-autoridades-gtn/);
+  });
+});
+
+/* R13 (Fernando 11-nov: «cámbialo»): la vigilia del 12 es en el Estadio Nacional del Perú. La corrección del reel
+   (reel/partes/1-lima/correcciones.json) manda sobre la agenda oficial; site/data/agenda.json no se toca. */
+describe("R13 · la sede de la vigilia sale de correcciones.json", () => {
+  const corr = correccionesDe("1-lima");
+  const guion = JSON.parse(leer("../partes/1-lima/guion.json"));
+  const tarde = () => structuredClone(guion.trozos.find((t) => t.id === "tarde-12"));
+  test("correcciones.json es válido, con fuente, URL y fecha, y corrige la vigilia", () => {
+    assert.deepEqual([...Correcciones.errores(corr, agendaOficial)], []); // copia: el array viene de otro contexto vm
+    const c = corr.correcciones.find((x) => x.parada === "vigilia-jovenes-monumental");
+    assert.deepEqual(c.campos, { lugar: "Estadio Nacional del Perú", lat: -12.067, lon: -77.034 });
+    assert.equal(c.fuente.nombre, "El Peruano, 9-nov-2026");
+    assert.equal(
+      c.fuente.url,
+      "https://elperuano.pe/noticia/308563-visita-de-leon-xiv-entradas-para-vigilia-con-jovenes-salen-hoy-lunes-9-via-teleticket",
+    );
+    assert.deepEqual(
+      c.fuentes_secundarias.map((f) => f.nombre),
+      ["América TV", "Canal N"],
+    );
+    assert.match(c.nota, /el programa vaticano del 21-09 dice Monumental/);
+  });
+  test("la corrección manda sobre la agenda (y la web sigue intacta)", () => {
+    const v = parada("vigilia-jovenes-monumental", agendaDe("1-lima"));
+    assert.equal(v.lugar, "Estadio Nacional del Perú");
+    assert.deepEqual([v.lat, v.lon], [-12.067, -77.034]);
+    assert.equal(v.inicio, "2026-11-12T18:00:00-05:00", "la corrección no toca la hora");
+    assert.match(parada("vigilia-jovenes-monumental", agendaOficial).lugar, /Monumental/, "site/ no se toca");
+  });
+  test("el guion dice «Estadio Nacional» en datos, subtítulo y voz", () => {
+    const t = tarde();
+    assert.equal(t.datos.find((d) => d.parada === "vigilia-jovenes-monumental").lugar, "Estadio Nacional");
+    for (const campo of ["voz", "texto"]) {
+      assert.ok(t[campo].includes("Estadio Nacional"), campo);
+      assert.ok(!/Monumental/i.test(t[campo]), campo);
+    }
+  });
+  test("caso negativo: si el guion vuelve a decir «Monumental», falla", () => {
+    const t = tarde();
+    t.voz = t.voz.replace("Estadio Nacional", "Estadio Monumental");
+    t.texto = t.texto.replace("Estadio Nacional", "Estadio Monumental");
+    t.datos.find((d) => d.parada === "vigilia-jovenes-monumental").lugar = "Estadio Monumental";
+    const e = erroresDe(t, agendaDe("1-lima"));
+    assert.ok(
+      e.some((x) => /«Estadio Monumental» no es el lugar de vigilia-jovenes-monumental/.test(x)),
+      JSON.stringify(e),
+    );
+    // solo la voz: también falla
+    const v = tarde();
+    v.voz = v.voz.replace("Estadio Nacional", "Estadio Monumental");
+    assert.ok(erroresDe(v, agendaDe("1-lima")).some((x) => /«Estadio Monumental» no es un lugar declarado/.test(x)));
+  });
+  test("caso negativo: una corrección sin URL, sin fecha, de un campo no permitido o de una parada inexistente", () => {
+    const malo = structuredClone(corr);
+    const c = malo.correcciones[0];
+    delete c.fuente.url;
+    c.fuente.fecha = "9-nov";
+    c.campos.inicio = "2026-11-12T19:00:00-05:00";
+    malo.correcciones.push({ ...structuredClone(corr.correcciones[0]), parada: "no-existe" });
+    const e = Correcciones.errores(malo, agendaOficial).join("\n");
+    assert.match(e, /no tiene URL/);
+    assert.match(e, /no tiene fecha/);
+    assert.match(e, /no se puede corregir «inicio»/);
+    assert.match(e, /no-existe: no es una parada/);
+    assert.throws(() => Correcciones.aplicar(agendaOficial, malo), /no válido/);
+  });
+});
+
+/* R12 (Fernando 11-nov: «dices estadio monumental pero esa foto no es del estadio monumental»): en cada frase la foto
+   visible es la del lugar que nombra esa frase, o ninguna (Gran Teatro Nacional: no hay foto libre buena).
+   Se evalúa la misma función de reel.html que decide qué foto se ve (fotosVisibles), a mitad de cada frase. */
+const QUE_MUESTRA = fotosReel.nombran; // foto → lugares que muestra (la Catedral y la Plaza Mayor son la misma plaza)
+const fuenteDe = (nombre) =>
+  html.match(new RegExp(`\\n(?:const ${nombre} = .*|function ${nombre}\\([\\s\\S]*?\\n\\})`))[0];
+const fotosVisibles = new Function(
+  `${["clamp", "out", "ap", "fotosVisibles"].map(fuenteDe).join("\n")}\nreturn fotosVisibles;`,
+)();
+export function fotosQueNoCuadran(trozo) {
+  const frases = trozo.texto.split(/(?<=[.!?])\s+(?=[¿¡A-ZÁÉÍÓÚÑ])/);
+  const err = [];
+  if (trozo.fotos && trozo.fotos.length !== frases.length)
+    err.push(`${trozo.fotos.length} fotos para ${frases.length} frases`);
+  const F = frases.map((_, j) => j * 5); // frases de 5 s
+  frases.forEach((frase, j) => {
+    for (const s of [F[j] + 1.0, F[j] + 2.5, F[j] + 4.5]) {
+      for (const { id, a } of fotosVisibles(trozo, s, F, frases.length * 5)) {
+        if (a < 0.5) continue; // fundido del cambio de frase
+        const lugares = QUE_MUESTRA[id];
+        if (!lugares) err.push(`frase ${j + 1}: la foto ${id} no declara qué lugar muestra`);
+        else if (!lugares.some((l) => frase.includes(l)))
+          err.push(`frase ${j + 1} («${frase.slice(0, 40)}…»): se ve ${id} (${lugares.join(" / ")}) y no se nombra`);
+      }
+    }
+  });
+  return [...new Set(err)];
+}
+for (const nombre of partes) {
+  const guion = JSON.parse(leer(`../partes/${nombre}/guion.json`));
+  describe(`R12 · ${nombre}: la foto de cada frase es la del lugar que se nombra`, () => {
+    for (const trozo of guion.trozos) test(`${trozo.id}`, () => assert.deepEqual(fotosQueNoCuadran(trozo), []));
+  });
+}
+describe("R12 · el control detecta fotos que no cuadran (casos negativos)", () => {
+  const guion = JSON.parse(leer("../partes/1-lima/guion.json"));
+  const trozo = (id) => structuredClone(guion.trozos.find((t) => t.id === id));
+  test("tarde-12 con la foto de la Nunciatura toda la escena (el fallo que vio Fernando)", () => {
+    const t = trozo("tarde-12");
+    t.fotos = ["lima-nunciatura", "lima-nunciatura"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /frase 1 .*lima-nunciatura/);
+  });
+  test("tarde-12 con las fotos cruzadas", () => {
+    const t = trozo("tarde-12");
+    t.fotos.reverse();
+    assert.equal(fotosQueNoCuadran(t).length, 2);
+  });
+  test("noche-11 con la foto del Palacio también en el Gran Teatro Nacional", () => {
+    const t = trozo("noche-11");
+    t.fotos = ["lima-palacio", "lima-palacio"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /frase 2 .*lima-palacio/);
+  });
+  test("una foto sin lugar declarado, o menos fotos que frases", () => {
+    const t = trozo("noche-11");
+    t.fotos = ["lima-ciudad", null];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /no declara qué lugar/);
+    t.fotos = ["lima-palacio"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /1 fotos para 2 frases/);
   });
 });

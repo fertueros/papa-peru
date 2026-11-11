@@ -1,0 +1,299 @@
+{
+  "nota": "Recorridos ANUNCIADOS (DP-002), solo para los reels; nunca en la web. 'anunciado' es el orden de calles tal como lo da la fuente; 'tramos' son esas calles con la geometría de OpenStreetMap recortada entre sus cruces (reel/recorridos.py, una vez; el render no consulta OSM). Un 'enlace' es una recta donde el anuncio no dice cómo se unen dos calles que no se tocan; 'solo_cruce' es una avenida que el anuncio nombra y la ruta solo cruza. reel/tests/recorridos.test.mjs comprueba que cada calle dibujada o rotulada está aquí y en el anuncio.",
+  "rotulo": "Recorrido anunciado por la coordinación de la visita (11-nov) · puede cambiar · no es seguimiento en vivo",
+  "geometria": {
+    "datos": "© OpenStreetMap contributors",
+    "licencia": "ODbL 1.0",
+    "url": "https://www.openstreetmap.org/copyright",
+    "servicio": "Overpass API (overpass-api.de)",
+    "bbox": [-12.1, -77.13, -12.02, -77.02],
+    "alias": {
+      "Avenida La Marina": "Avenida de La Marina"
+    },
+    "consulta": "[out:json][timeout:90];way[\"highway\"][\"name\"~\"^(Avenida Bolivia|Avenida Brasil|Avenida Elmer Faucett|Avenida Garcilaso de la Vega|Avenida La Marina|Avenida Nicolás de Piérola|Avenida Tacna|Avenida de La Marina|Jirón Conde de Superunda)$\"](-12.1,-77.13,-12.02,-77.02);out body geom;",
+    "osm_base": "2026-11-11T19:50:14Z"
+  },
+  "recorridos": [
+    {
+      "id": "11-cerrado",
+      "dia": "2026-11-11",
+      "trozo": "noche-11",
+      "vehiculo": "cerrado",
+      "fuente": {
+        "medio": "RPP",
+        "titulo": "Papa León XIV: conoce las rutas y avenidas por donde pasará el papamóvil en Perú",
+        "url": "https://rpp.pe/peru/actualidad/papa-leon-xiv-conoce-las-rutas-y-avenidas-por-donde-pasara-el-papamovil-en-peru-noticia-1717071",
+        "fecha": "2026-11-11",
+        "actualizado": "2026-11-11T10:53-05:00",
+        "anuncia": "mons. Guillermo Inca Pereda, coordinador nacional de la visita, en conferencia de prensa"
+      },
+      "anunciado": ["Grupo Aéreo N.º 8 (Callao)", "av. Elmer Faucett", "av. de la Marina", "av. Brasil"],
+      "desde": {
+        "nombre": "Grupo Aéreo N.º 8",
+        "lat": -12.026,
+        "lon": -77.11,
+        "de": "agenda: llegada-callao"
+      },
+      "hasta": {
+        "nombre": "Basílica María Auxiliadora",
+        "lat": -12.060962,
+        "lon": -77.042917,
+        "de": "OSM way 402156549 (centro)"
+      },
+      "tramos": [
+        {
+          "acceso": true,
+          "motivo": "del lugar de partida a la primera calle del anuncio",
+          "puntos": [[-12.026, -77.11], [-12.023517, -77.105135]],
+          "hueco_m": 597
+        },
+        {
+          "calle": "Av. Elmer Faucett",
+          "osm": "Avenida Elmer Faucett",
+          "puntos": [
+            [-12.023517, -77.105135],
+            [-12.027102, -77.103154],
+            [-12.029227, -77.102075],
+            [-12.029506, -77.102285],
+            [-12.029382, -77.102458],
+            [-12.034012, -77.100191],
+            [-12.035282, -77.099824],
+            [-12.035581, -77.099798],
+            [-12.036383, -77.099867],
+            [-12.03663, -77.099827],
+            [-12.036619, -77.099751],
+            [-12.03694, -77.09966],
+            [-12.039359, -77.099402],
+            [-12.039333, -77.099182],
+            [-12.040635, -77.099015],
+            [-12.046213, -77.098498],
+            [-12.0471, -77.098533],
+            [-12.048172, -77.098467],
+            [-12.048555, -77.098323],
+            [-12.049012, -77.098276],
+            [-12.051501, -77.098226],
+            [-12.054864, -77.0978],
+            [-12.061368, -77.097164],
+            [-12.062522, -77.097094],
+            [-12.066182, -77.097261],
+            [-12.067339, -77.097381],
+            [-12.068324, -77.09761],
+            [-12.072074, -77.098805],
+            [-12.072095, -77.098742],
+            [-12.072896, -77.098978],
+            [-12.073301, -77.099011],
+            [-12.073864, -77.098909],
+            [-12.074304, -77.098701],
+            [-12.074819, -77.098283],
+            [-12.075224, -77.097742]
+          ]
+        },
+        {
+          "calle": "Av. de la Marina",
+          "osm": "Avenida de La Marina",
+          "puntos": [
+            [-12.075224, -77.097742],
+            [-12.077342, -77.093304],
+            [-12.077785, -77.091746],
+            [-12.07793, -77.090612],
+            [-12.078109, -77.081702],
+            [-12.078212, -77.08082],
+            [-12.078503, -77.07961],
+            [-12.083376, -77.066112],
+            [-12.083749, -77.065213],
+            [-12.084087, -77.064748],
+            [-12.084317, -77.064581],
+            [-12.084512, -77.064484],
+            [-12.085181, -77.06439],
+            [-12.085579, -77.064174],
+            [-12.086484, -77.063063]
+          ]
+        },
+        {
+          "calle": "Av. Brasil",
+          "osm": "Avenida Brasil",
+          "puntos": [
+            [-12.086323, -77.063126],
+            [-12.069116, -77.048906],
+            [-12.06621, -77.046522],
+            [-12.066159, -77.046567],
+            [-12.061075, -77.042398]
+          ]
+        }
+      ],
+      "puntos_total": 57,
+      "tolerancia_m": 4.0
+    },
+    {
+      "id": "11-papamovil",
+      "dia": "2026-11-11",
+      "trozo": "noche-11",
+      "vehiculo": "papamovil",
+      "fuente": {
+        "medio": "RPP",
+        "titulo": "Papa León XIV: conoce las rutas y avenidas por donde pasará el papamóvil en Perú",
+        "url": "https://rpp.pe/peru/actualidad/papa-leon-xiv-conoce-las-rutas-y-avenidas-por-donde-pasara-el-papamovil-en-peru-noticia-1717071",
+        "fecha": "2026-11-11",
+        "actualizado": "2026-11-11T10:53-05:00",
+        "anuncia": "mons. Guillermo Inca Pereda, coordinador nacional de la visita, en conferencia de prensa"
+      },
+      "anunciado": [
+        "basílica María Auxiliadora (av. Brasil, Breña)",
+        "av. Brasil",
+        "av. Bolivia",
+        "av. Garcilaso de la Vega",
+        "av. Nicolás de Piérola",
+        "jr. Conde de Superunda",
+        "Plaza de Armas / Palacio de Gobierno"
+      ],
+      "desde": {
+        "nombre": "Basílica María Auxiliadora",
+        "lat": -12.060962,
+        "lon": -77.042917,
+        "de": "OSM way 402156549 (centro)"
+      },
+      "hasta": {
+        "nombre": "Plaza de Armas",
+        "lat": -12.045942,
+        "lon": -77.030568,
+        "de": "OSM relation 8052221 (centro)"
+      },
+      "tramos": [
+        {
+          "acceso": true,
+          "motivo": "del lugar de partida a la primera calle del anuncio",
+          "puntos": [[-12.060962, -77.042917], [-12.061075, -77.042398]],
+          "hueco_m": 58
+        },
+        {
+          "calle": "Av. Brasil",
+          "osm": "Avenida Brasil",
+          "puntos": [[-12.061075, -77.042398], [-12.06058, -77.041981]]
+        },
+        {
+          "enlace": true,
+          "motivo": "el anuncio no detalla por dónde se une con la calle anterior: recta, trayecto aproximado",
+          "puntos": [[-12.06058, -77.041981], [-12.05626, -77.042263]],
+          "hueco_m": 481
+        },
+        {
+          "calle": "Av. Bolivia",
+          "osm": "Avenida Bolivia",
+          "puntos": [[-12.05626, -77.042263], [-12.055898, -77.038277]]
+        },
+        {
+          "calle": "Av. Garcilaso de la Vega",
+          "osm": "Avenida Garcilaso de la Vega",
+          "puntos": [[-12.055898, -77.038277], [-12.053304, -77.038501], [-12.048673, -77.039113]]
+        },
+        {
+          "calle": "Av. Nicolás de Piérola",
+          "osm": "Avenida Nicolás de Piérola",
+          "solo_cruce": true,
+          "hueco_m": 0,
+          "puntos": [
+            [-12.047876, -77.040542],
+            [-12.046735, -77.042297],
+            [-12.046673, -77.042239],
+            [-12.046878, -77.041897],
+            [-12.049491, -77.037871]
+          ]
+        },
+        {
+          "enlace": true,
+          "motivo": "el anuncio no detalla por dónde se une con la calle anterior: recta, trayecto aproximado",
+          "puntos": [[-12.048673, -77.039113], [-12.041613, -77.037036]],
+          "hueco_m": 817
+        },
+        {
+          "calle": "Jr. Conde de Superunda",
+          "osm": "Jirón Conde de Superunda",
+          "puntos": [[-12.041613, -77.037036], [-12.041843, -77.036072], [-12.04517, -77.030698]]
+        }
+      ],
+      "puntos_total": 21,
+      "tolerancia_m": 4.0
+    },
+    {
+      "id": "12-papamovil",
+      "dia": "2026-11-12",
+      "trozo": "manana-12",
+      "vehiculo": "papamovil",
+      "fuente": {
+        "medio": "RPP",
+        "titulo": "Papa León XIV: conoce las rutas y avenidas por donde pasará el papamóvil en Perú",
+        "url": "https://rpp.pe/peru/actualidad/papa-leon-xiv-conoce-las-rutas-y-avenidas-por-donde-pasara-el-papamovil-en-peru-noticia-1717071",
+        "fecha": "2026-11-11",
+        "actualizado": "2026-11-11T10:53-05:00",
+        "anuncia": "mons. Guillermo Inca Pereda, coordinador nacional de la visita, en conferencia de prensa"
+      },
+      "anunciado": [
+        "Centro Cívico (av. Garcilaso de la Vega)",
+        "av. Garcilaso de la Vega",
+        "av. Tacna",
+        "jr. Conde de Superunda",
+        "Plaza de Armas de Lima"
+      ],
+      "desde": {
+        "nombre": "Centro Cívico",
+        "lat": -12.056777,
+        "lon": -77.037331,
+        "de": "OSM way 401860677 (centro)"
+      },
+      "hasta": {
+        "nombre": "Plaza de Armas",
+        "lat": -12.045942,
+        "lon": -77.030568,
+        "de": "OSM relation 8052221 (centro)"
+      },
+      "tramos": [
+        {
+          "acceso": true,
+          "motivo": "del lugar de partida a la primera calle del anuncio",
+          "puntos": [[-12.056777, -77.037331], [-12.056022, -77.038146]],
+          "hueco_m": 122
+        },
+        {
+          "calle": "Av. Garcilaso de la Vega",
+          "osm": "Avenida Garcilaso de la Vega",
+          "puntos": [
+            [-12.056022, -77.038146],
+            [-12.053309, -77.038379],
+            [-12.049007, -77.038937],
+            [-12.048758, -77.038978],
+            [-12.048819, -77.039081],
+            [-12.048673, -77.039113]
+          ]
+        },
+        {
+          "calle": "Av. Tacna",
+          "osm": "Avenida Tacna",
+          "puntos": [[-12.04854, -77.039079], [-12.042552, -77.034933]]
+        },
+        {
+          "calle": "Jr. Conde de Superunda",
+          "osm": "Jirón Conde de Superunda",
+          "puntos": [[-12.042672, -77.034735], [-12.04517, -77.030698]]
+        }
+      ],
+      "puntos_total": 12,
+      "tolerancia_m": 4.0
+    }
+  ],
+  "sin_dibujar": [
+    {
+      "dia": "2026-11-12",
+      "vehiculo": "cerrado",
+      "anunciado": "Nunciatura Apostólica (Jesús María) → Centro Cívico",
+      "motivo": "sin avenidas anunciadas y el Centro Cívico no es un lugar de la agenda: no se dibuja",
+      "fuente": {
+        "medio": "RPP",
+        "titulo": "Papa León XIV: conoce las rutas y avenidas por donde pasará el papamóvil en Perú",
+        "url": "https://rpp.pe/peru/actualidad/papa-leon-xiv-conoce-las-rutas-y-avenidas-por-donde-pasara-el-papamovil-en-peru-noticia-1717071",
+        "fecha": "2026-11-11",
+        "actualizado": "2026-11-11T10:53-05:00",
+        "anuncia": "mons. Guillermo Inca Pereda, coordinador nacional de la visita, en conferencia de prensa"
+      }
+    }
+  ]
+}

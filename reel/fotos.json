@@ -1,0 +1,25 @@
+{
+  "nota": "Fotos propias del reel (no de la web): autor y licencia de Wikimedia Commons. Las demás fotos salen de site/data/agenda.json (fotos). Créditos en el comentario fijado de texto-linkedin.md (R8). «nombran»: qué lugar muestra cada foto, como lo dice la voz; reel/tests/guion.test.mjs (R12) exige que la foto de cada frase sea de un lugar que esa frase nombra. La de la Catedral vale para la Plaza Mayor: es la misma plaza.",
+  "fotos": {
+    "lima-estadio-nacional": {
+      "archivo": "lima-estadio-nacional",
+      "titulo_commons": "File:Estadio Nacional del Perú.jpg",
+      "fuente_url": "https://commons.wikimedia.org/wiki/File:Estadio_Nacional_del_Per%C3%BA.jpg",
+      "autor": "Ministerio de Defensa del Perú",
+      "licencia": "CC BY 2.0",
+      "licencia_url": "https://creativecommons.org/licenses/by/2.0/",
+      "cambios": "recortada a 16:9 y comprimida",
+      "alt": "Vista aérea del Estadio Nacional del Perú, en Lima",
+      "lugar": "Estadio Nacional del Perú (Lima)",
+      "ancho": 800,
+      "alto": 450
+    }
+  },
+  "nombran": {
+    "lima-palacio": ["Palacio de Gobierno"],
+    "lima-catedral": ["Catedral", "Plaza Mayor"],
+    "lima-estadio-nacional": ["Estadio Nacional"],
+    "lima-nunciatura": ["Nunciatura"],
+    "chiclayo-catedral": ["Chiclayo"]
+  }
+}

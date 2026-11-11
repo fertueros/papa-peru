@@ -1,0 +1,25 @@
+{
+  "nota": "R13 (Fernando, 11-nov: «cámbialo»). Correcciones del reel sobre site/data/agenda.json (la web no se toca): reel/correcciones.js las aplica antes de dibujar y reel/tests/guion.test.mjs comprueba el guion contra la agenda ya corregida. La corrección manda sobre la agenda. Solo se corrigen campos de lugar (lugar, lat, lon) de una parada existente, siempre con fuente, URL y fecha.",
+  "correcciones": [
+    {
+      "parada": "vigilia-jovenes-monumental",
+      "campos": {
+        "lugar": "Estadio Nacional del Perú",
+        "lat": -12.067,
+        "lon": -77.034
+      },
+      "antes": "Estadio Monumental (Ate/La Molina)",
+      "fuente": {
+        "nombre": "El Peruano, 9-nov-2026",
+        "url": "https://elperuano.pe/noticia/308563-visita-de-leon-xiv-entradas-para-vigilia-con-jovenes-salen-hoy-lunes-9-via-teleticket",
+        "fecha": "2026-11-09",
+        "detalle": "conferencia de los organizadores; inscripciones de la Comisión de Laicos y Juventudes de la CEP y del Arzobispado de Lima; entradas por Teleticket"
+      },
+      "fuentes_secundarias": [
+        { "nombre": "América TV", "fecha": "2026-11" },
+        { "nombre": "Canal N", "fecha": "2026-11" }
+      ],
+      "nota": "el programa vaticano del 21-09 dice Monumental"
+    }
+  ]
+}

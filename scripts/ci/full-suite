@@ -4,5 +4,6 @@
 set -euo pipefail
 npm ci --no-audit --no-fund
 node --test "tests/*.test.mjs"
+node --test "reel/tests/*.test.mjs"
 node scripts/build.mjs
 exec scripts/ci/e2e
