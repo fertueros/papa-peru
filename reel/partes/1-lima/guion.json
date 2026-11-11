@@ -5,8 +5,8 @@
   "fechas": "11-13 nov 2026",
   "foto_portada": "lima-catedral",
   "entrada": 0.75,
-  "cola": 5.5,
-  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda).",
+  "cola": 3.0,
+  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda) y, con DP-002, los recorridos anunciados de recorridos.json que dibuja en vista de calles.",
   "trozos": [
     {
       "id": "gancho",
@@ -35,7 +35,10 @@
     {
       "id": "noche-11",
       "escena": "lima",
-      "mapa": { "paradas": ["llegada-callao", "bienvenida-palacio-gobierno", "encuentro-autoridades-gtn"] },
+      "mapa": {
+        "paradas": ["llegada-callao", "bienvenida-palacio-gobierno", "encuentro-autoridades-gtn"],
+        "recorridos": ["11-cerrado", "11-papamovil"]
+      },
       "foto": "lima-palacio",
       "voz": "A las seis y cuarto, ceremonia de bienvenida en el Palacio de Gobierno. A las siete y cuarenta y cinco, encuentro con las autoridades en el Gran Teatro Nacional.",
       "texto": "A las 18:15, ceremonia de bienvenida en el Palacio de Gobierno. A las 19:45, encuentro con las autoridades en el Gran Teatro Nacional.",
@@ -47,7 +50,10 @@
     {
       "id": "manana-12",
       "escena": "lima",
-      "mapa": { "paradas": ["hora-media-catedral-lima", "encuentro-plaza-catedral-lima"] },
+      "mapa": {
+        "paradas": ["hora-media-catedral-lima", "encuentro-plaza-catedral-lima"],
+        "recorridos": ["12-papamovil"]
+      },
       "foto": "lima-catedral",
       "voz": "El jueves doce, a las diez y veinte, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las once y media, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",
       "texto": "El jueves 12, a las 10:20, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las 11:30, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",

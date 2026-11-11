@@ -15,7 +15,7 @@ reel/hacer_reel.sh 1-lima --solo-video             # reusar la voz ya hecha
 
 Salida (FUERA de git) en `<meta>/.runtime/reels/<parte>/`: `reel.mp4` (H.264 + AAC, 1080×1920,
 30 fps), `portada.png` (= los primeros 0,6 s del vídeo, para subirla como miniatura en LinkedIn
-desde escritorio), `capturas/` (portada, gancho, vuelo, aterrizaje, Lima, norte, créditos) y `voz/`.
+desde escritorio), `capturas/` (portada, gancho, vuelo, aterrizaje, recorridos del 11 y 12, Lima, norte, cierre) y `voz/`.
 
 Las partes 2 y 3 se hacen escribiendo `partes/2-norte/guion.json` y `partes/3-cusco/guion.json`
 con las mismas escenas (`gancho`, `vuelo`, `lima`, `norte`, `cierre`) o añadiendo una a `reel.html`.
@@ -33,14 +33,24 @@ con las mismas escenas (`gancho`, `vuelo`, `lima`, `norte`, `cierre`) o añadien
 - Cada hora, día y lugar del subtítulo se declara en `datos` del guion con la parada o el tramo de
   `site/data/agenda.json` del que sale; el test falla si no coincide o si se dice una hora sin
   declarar. Las tarjetas y el mapa leen la agenda directamente.
-- Nada de calles, papamóvil ni ubicación en vivo. Los traslados dentro de una ciudad son **líneas
-  rectas punteadas** entre los lugares públicos de dos actos, rotuladas «traslado · trayecto
-  aproximado, no es la ruta real». Los vuelos llevan «Simulación del trayecto previsto · no es
+- Nada de ubicación en vivo. La voz y los subtítulos no nombran calles ni papamóvil. Los traslados
+  dentro de una ciudad son **líneas rectas punteadas** entre los lugares públicos de dos actos,
+  rotuladas «traslado · trayecto aproximado, no es la ruta real».
+- **Recorridos anunciados (DP-002, R11)**: solo en los reels, nunca en la web. `partes/<n>/recorridos.json`
+  guarda, para cada recorrido anunciado, la fuente (medio, URL, fecha, quién lo anuncia), el orden de
+  calles del anuncio y la geometría de OpenStreetMap (© OpenStreetMap contributors, ODbL) recortada
+  entre cruces y simplificada (≤ 300 puntos), generada una vez con `python reel/recorridos.py <parte>`
+  (Overpass; el render no consulta OSM). Donde dos calles seguidas del anuncio no se tocan, una recta
+  punteada de traslado aproximado (no se inventa la calle). `reel.html` dibuja solo lo que devuelve
+  `Recorridos.plan()` (`recorridos.js`), con un icono genérico de vehículo (papamóvil en oro continuo,
+  vehículo cerrado en blanco discontinuo) y siempre el rótulo «Recorrido anunciado por la coordinación
+  de la visita (11-nov) · puede cambiar · no es seguimiento en vivo». Las infografías de la fuente no se
+  usan en el vídeo. Test: `reel/tests/recorridos.test.mjs`. Los vuelos llevan «Simulación del trayecto previsto · no es
   seguimiento en vivo». Fecha de consulta de la agenda y «sujeto a cambios» siempre visibles.
 - A escala de ciudad no se dibuja costa (el contorno de Natural Earth simplificado no da para eso):
   es un esquema de posiciones relativas.
 
-Test: `node --test reel/tests/guion.test.mjs`.
+Test: `node --test reel/tests/*.test.mjs`.
 
 ## Colores
 
@@ -65,9 +75,11 @@ en la franja central (y ≈ 1300 px), lejos de los botones de Instagram/TikTok.
 
 ## Créditos y licencia
 
-Fotos de Wikimedia Commons (autor y licencia en `site/data/agenda.json`, recortadas; sin crédito sobreimpreso en las escenas: van en los créditos finales y en el comentario fijado); como varias son
+Fotos de Wikimedia Commons (autor y licencia en `site/data/agenda.json`, recortadas; sin crédito sobreimpreso: el vídeo no lleva pantalla de créditos (R8, Fernando 11-nov); todos los créditos van en el comentario fijado de `texto-linkedin.md`, y `reel/tests/recorridos.test.mjs` lo comprueba); como varias son
 CC BY-SA 4.0, **el vídeo se publica bajo CC BY-SA 4.0**. Mapa: Natural Earth (dominio público).
+Calles: © OpenStreetMap contributors (ODbL). Recorridos: anunciados por la coordinación nacional de la
+visita (vía RPP, 11-nov).
 Agenda: programa oficial de la Santa Sede. Música: coro original generado para este vídeo (sin letra ni
 melodías existentes; `../.runtime/reels/musica/coro.wav`, fuera de git), mezclado bajo la voz con
-ducking: ~20 dB por debajo mientras se habla, suave en portada, pausas y créditos; mezcla a -14 LUFS,
+ducking: ~20 dB por debajo mientras se habla, suave en portada, pausas y en el fundido final; mezcla a -14 LUFS,
 pico ≤ -1,5 dBTP. Sin música de bibliotecas de redes sociales.

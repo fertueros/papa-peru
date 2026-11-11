@@ -400,7 +400,7 @@ def main() -> None:
     rehacer = [r.lower() for r in a.rehacer]
 
     entrada = float(guion.get("entrada", ENTRADA))  # la portada fija ocupa este hueco
-    cola = float(guion.get("cola", COLA))  # créditos finales
+    cola = float(guion.get("cola", COLA))  # la pregunta final en pantalla y la música en fundido (sin créditos)
     pista, t = [silencio(entrada)], entrada
     tiempos = {"motor": nombre, "velocidad": a.velocidad, "titulo": guion.get("titulo", ""),
                "firma": guion.get("firma", ""), "trozos": [],

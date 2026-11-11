@@ -11,12 +11,14 @@
 </head>
 <body>
 <canvas id="c" width="1080" height="1920"></canvas>
+<script src="recorridos.js"></script>
 <script>
 /* Reel vertical de una parte del itinerario. Cada escena es una función pura de
    (s = segundos desde que empieza, d = duración, F = inicio de cada frase, tr = trozo):
    grabar.py llama a reelIr(t) cuadro a cuadro y el resultado siempre es el mismo.
    Horas, lugares y coordenadas se leen SOLO de window.AGENDA (site/data/agenda.json).
-   Nunca se dibuja una ubicación real del papa: solo el lugar público de cada acto. */
+   Nunca se dibuja una ubicación real del papa: solo el lugar público de cada acto y, en los reels (DP-002),
+   los recorridos ANUNCIADOS de window.RECORRIDOS (reel/partes/<n>/recorridos.json) vía Recorridos.plan(). */
 const W = 1080, H = 1920, PORTADA = 0.6; // 18 cuadros a 30 fps de portada fija
 // Escudo de León XIV (Sala de Prensa de la Santa Sede, 14-05-2025): azul, plata, rojo y oro.
 // Los tonos exactos no se publican; estos son una interpretación sobria (ver reel/README.md).
@@ -34,14 +36,14 @@ const ease = u => { u = clamp(u); return u < .5 ? 4 * u * u * u : 1 - (-2 * u + 
 const ap = (s, at, dur = .5) => out((s - at) / dur);
 
 function txt(s, x, y, size, color = C.txt, o = {}) {
-  const { w = 700, al = 'center', bl = 'middle', a = 1, max = 0, sc = 1, sombra = false } = o;
+  const { w = 700, al = 'center', bl = 'middle', a = 1, max = 0, sc = 1, sombra = false, rot = 0 } = o;
   if (a <= 0 || !s) return;
   ctx.save();
   ctx.globalAlpha *= a;
   let px = size;
   ctx.font = `${w} ${px}px ${FONT}`;
   if (max) { while (ctx.measureText(s).width > max && px > 10) { px -= 1; ctx.font = `${w} ${px}px ${FONT}`; } }
-  ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
   ctx.textAlign = al; ctx.textBaseline = bl;
   if (sombra) { ctx.lineJoin = 'round'; ctx.lineWidth = px / 6; ctx.strokeStyle = 'rgba(5,10,30,.85)'; ctx.strokeText(s, 0, 0); }
   ctx.fillStyle = color; ctx.fillText(s, 0, 0);
@@ -133,10 +135,30 @@ function prepararVistas() {
   VISTAS.lima = encuadre(lima.map(p => P(p.lon, p.lat)), .84, LIMA_PUNTOS);
   const lc = tramo('lima-chiclayo');
   VISTAS.norte = encuadre([P(lc.salida_lon, lc.salida_lat), P(lc.llegada_lon, lc.llegada_lat)], .8, { x: MAPA.x, y: MAPA.y + 230, w: MAPA.w, h: MAPA.h - 380 });
+  // vista de calles de cada trozo con recorridos: A = todo (recorridos y actos), B = el último recorrido (el
+  // papamóvil, más cerca), fin = la que necesite el traslado siguiente (la de Lima si es corto, si no A)
+  VISTAS.calles = {};
+  for (const tr of T.trozos) {
+    const pl = planDe(tr);
+    if (!pl) continue;
+    const actos = (tr.mapa.paradas ?? []).map(parada).map(p => [p.lat, p.lon]);
+    // el recorrido algo más abajo que el centro: deja sitio arriba para el nombre de la última calle
+    const bajo = { ...CALLES, y: CALLES.y + 50, h: CALLES.h - 50 };
+    const A_ = encuadre([...pl.recorridos.flatMap(r => r.camino), ...actos].map(enUV), .8, bajo);
+    const ult = pl.recorridos[pl.recorridos.length - 1];
+    const B = encuadre([...ult.camino, ...ult.lugares.map(l => [l.lat, l.lon])].map(enUV), .8, bajo);
+    // si el traslado siguiente es corto (Catedral → Plaza Mayor), el mismo acercamiento de vistaLima pero centrado en la zona de calles
+    const vl = vistaLima(tr), c = encuadre(actos.map(enUV), .84, CALLES);
+    const dx = (CALLES.x + CALLES.w / 2) - (MAPA.x + MAPA.w / 2), dy = (CALLES.y + CALLES.h / 2) - (MAPA.y + MAPA.h / 2);
+    const mu = c.cx + dx / c.k, mv = c.cy + dy / c.k;
+    VISTAS.calles[tr.id] = { A: A_, B, fin: vl === VISTAS.lima ? A_ : { cx: mu - dx / vl.k, cy: mv - dy / vl.k, k: vl.k } };
+  }
 }
+/* Cámara con la que termina un trozo de Lima (de ella parte el siguiente). */
+const vistaFinal = tr => VISTAS.calles?.[tr.id]?.fin ?? vistaLima(tr);
 
 function dibujarMapa(cam, o = {}) {
-  const { reticula = false, costa = true } = o;
+  const { reticula = false, costa = true, liso = false } = o;
   ctx.save();
   ctx.beginPath(); ctx.roundRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h, 36); ctx.clip();
   const g = ctx.createLinearGradient(0, MAPA.y, 0, MAPA.y + MAPA.h);
@@ -147,7 +169,7 @@ function dibujarMapa(cam, o = {}) {
     for (let lon = -90; lon <= -40; lon += 10) { const [x] = aPantalla(P(lon, 0), cam); ctx.beginPath(); ctx.moveTo(x, MAPA.y); ctx.lineTo(x, MAPA.y + MAPA.h); ctx.stroke(); }
     for (let lat = 10; lat >= -50; lat -= 10) { const [, y] = aPantalla(P(0, lat), cam); ctx.beginPath(); ctx.moveTo(MAPA.x, y); ctx.lineTo(MAPA.x + MAPA.w, y); ctx.stroke(); }
   }
-  if (!costa) { ctx.fillStyle = C.tierra; ctx.fillRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h); }
+  if (!costa && !liso) { ctx.fillStyle = C.tierra; ctx.fillRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h); }
   if (PERU && costa) {
     ctx.save();
     ctx.translate(MAPA.x + MAPA.w / 2, MAPA.y + MAPA.h / 2); ctx.scale(cam.k, cam.k); ctx.translate(-cam.cx, -cam.cy);
@@ -244,6 +266,191 @@ function rotuloTraslado(a = 1, y = MAPA.y + MAPA.h - 44) {
     txt(TRASLADO, 585, y + 1, 31, C.oro, { w: 700, max: 740 });
   });
 }
+/* Rótulo obligatorio de DP-002: va SIEMPRE con un recorrido (lo dibuja dibujarRecorridos, no la escena). */
+function rotuloRecorrido(a = 1, y = 1134) {
+  const [l1, ...resto] = Recorridos.ROTULO.split(' · ');
+  alpha(a, () => {
+    rr(70, y - 46, 940, 92, 30, 'rgba(10,22,51,.92)', C.oro, 3);
+    txt(l1, 540, y - 19, 29, C.oro, { w: 700, max: 900 });
+    txt(resto.join(' · '), 540, y + 21, 29, C.oro, { w: 700, max: 900 });
+  });
+}
+
+/* ---------- recorridos anunciados (DP-002): solo lo que devuelve Recorridos.plan() ---------- */
+let REC = null; // reel/partes/<n>/recorridos.json, inyectado por grabar.py (la geometría ya viene de OSM)
+const CALLES = { x: 60, y: 560, w: 960, h: 440 }; // zona del mapa de calles, entre la tarjeta y los rótulos
+const planDe = tr => (tr.mapa?.recorridos?.length ? Recorridos.plan(REC, tr.mapa.recorridos) : null);
+const enUV = ([lat, lon]) => P(lon, lat);
+/* Tiempos (s de la escena) de cada recorrido y claves de cámara: el vehículo cerrado y el papamóvil ocupan la
+   primera frase; el traslado aproximado al siguiente acto se dibuja después, cuando la cámara ya lo encuadra. */
+function agendaCalles(F, n) {
+  const f1 = F[1] ?? 4;
+  return n > 1
+    ? { rec: [[.4, 2.0], [2.0, f1 + .4]], claves: [[0, 'desde'], [1.4, 'A'], [1.6, 'A'], [2.6, 'B'], [f1 + 1.0, 'B'], [f1 + 2.0, 'fin']], traslado: f1 + 1.6 }
+    : { rec: [[.6, f1 - .8]], claves: [[0, 'desde'], [1.4, 'A'], [f1 - .2, 'A'], [f1 + 1.0, 'fin']], traslado: f1 + .6 };
+}
+function camCadena(claves, V, s) {
+  let i = 0;
+  while (i < claves.length - 1 && s >= claves[i + 1][0]) i++;
+  if (i === claves.length - 1) return V[claves[i][1]];
+  const [t0, a] = claves[i], [t1, b] = claves[i + 1];
+  return a === b ? V[a] : camLerp(V[a], V[b], (s - t0) / (t1 - t0));
+}
+/* Geometría de un recorrido en unidades del mapa, con longitudes acumuladas (para avanzar a velocidad constante). */
+function geomRecorrido(r) {
+  let off = 0;
+  const trazos = r.trazos.map(t => {
+    const uv = t.puntos.map(enUV), cum = [0];
+    for (let i = 1; i < uv.length; i++) cum.push(cum[i - 1] + Math.hypot(uv[i][0] - uv[i - 1][0], uv[i][1] - uv[i - 1][1]));
+    const g = { ...t, uv, cum, off, len: cum[cum.length - 1] }; // off: donde empieza (o se cruza) en el recorrido
+    if (t.tipo !== 'cruce') off += g.len;
+    return g;
+  });
+  return { ...r, trazos, total: off };
+}
+function parcial(g, hasta) { // puntos de un trazo hasta la longitud «hasta» (unidades del mapa)
+  const pts = [g.uv[0]];
+  for (let i = 1; i < g.uv.length; i++) {
+    if (g.cum[i] <= hasta) { pts.push(g.uv[i]); continue; }
+    const u = (hasta - g.cum[i - 1]) / ((g.cum[i] - g.cum[i - 1]) || 1);
+    pts.push([lerp(g.uv[i - 1][0], g.uv[i][0], u), lerp(g.uv[i - 1][1], g.uv[i][1], u)]);
+    break;
+  }
+  return pts;
+}
+function enPantalla(pts) { return pts.map(p => aPantalla(p)); }
+/* Estilos: papamóvil en oro continuo, vehículo cerrado en blanco discontinuo, enlace sin calle anunciada igual que
+   un traslado (oro punteado), avenida que solo se cruza en blanco tenue; mismos grosores que traslado/estela. */
+function trazo(pts, tipo, vehiculo, a = 1) {
+  if (pts.length < 2) return;
+  alpha(a, () => {
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 6;
+    if (tipo === 'enlace') { ctx.setLineDash([14, 12]); ctx.strokeStyle = C.oro; }
+    else if (tipo === 'cruce') { ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.45)'; }
+    else if (vehiculo === 'cerrado') { ctx.setLineDash([14, 12]); ctx.strokeStyle = C.blanco; }
+    else ctx.strokeStyle = C.oro;
+    ctx.beginPath(); pts.forEach(([x, y], i) => { if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke();
+    ctx.restore();
+  });
+}
+/* Icono GENÉRICO de vehículo (de perfil, mismos blanco/azul/oro que el avión); no es una posición en tiempo real. */
+function vehiculo(xy, tipo, izq, k = 1) {
+  ctx.save(); ctx.translate(xy[0], xy[1] - 20 * k); ctx.scale(izq ? -k : k, k);
+  ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.fillStyle = C.blanco;
+  if (tipo === 'papamovil') {
+    ctx.beginPath(); ctx.roundRect(-10, -30, 34, 24, 8); ctx.fillStyle = 'rgba(143,179,240,.75)'; ctx.fill(); // cabina de cristal
+    ctx.strokeStyle = C.blanco; ctx.stroke(); ctx.strokeStyle = C.bg;
+    ctx.beginPath(); ctx.roundRect(-34, -8, 68, 20, 6); ctx.fillStyle = C.blanco; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.oro; ctx.fillRect(-32, 0, 64, 4);
+  } else {
+    ctx.beginPath(); ctx.moveTo(-34, 12); ctx.lineTo(-34, -6); ctx.lineTo(-22, -22); ctx.lineTo(14, -22); ctx.lineTo(26, -6);
+    ctx.lineTo(34, -4); ctx.lineTo(34, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.bg; ctx.fillRect(-20, -17, 14, 10); ctx.fillRect(-2, -17, 14, 10);
+  }
+  ctx.fillStyle = C.bg;
+  for (const x of [-20, 20]) { ctx.beginPath(); ctx.arc(x, 13, 7, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+function leyendaRecorridos(tipos, a) {
+  alpha(a, () => tipos.forEach((v, i) => {
+    const y = CALLES.y + 22 + i * 40, x = 1000 - 260;
+    rr(x - 16, y - 18, 276, 36, 18, 'rgba(10,22,51,.85)', null);
+    trazo([[x, y], [x + 52, y]], 'calle', v);
+    txt(Recorridos.VEHICULOS[v], x + 66, y + 1, 26, C.blanco, { al: 'left', w: 600 });
+  }));
+}
+/* Dibuja los recorridos del plan hasta el instante s y SIEMPRE su rótulo. Devuelve si hay un enlace a la vista. */
+function dibujarRecorridos(pl, s, tiempos, aRotulo = 1, evitar = []) {
+  rotuloRecorrido(aRotulo);
+  let hayEnlace = false;
+  const geoms = pl.recorridos.map(geomRecorrido);
+  // solo dentro de la zona de calles: nada pasa por debajo de la tarjeta ni de los rótulos
+  ctx.save(); ctx.beginPath(); ctx.roundRect(MAPA.x, CALLES.y - 22, MAPA.w, CALLES.h + 30, 24); ctx.clip();
+  // la forma completa de las calles del recorrido, tenue, y encima lo ya recorrido
+  for (const g of geoms) for (const t of g.trazos) trazo(enPantalla(t.uv), t.tipo, g.vehiculo, t.tipo === 'cruce' ? 1 : .22);
+  const nombres = new Map();
+  geoms.forEach((g, j) => {
+    const [t0, t1] = tiempos[j], u = ease((s - t0) / (t1 - t0)), D = u * g.total;
+    for (const t of g.trazos) {
+      if (t.tipo !== 'cruce' && D > t.off) {
+        trazo(enPantalla(parcial(t, D - t.off)), t.tipo, g.vehiculo);
+        if (t.tipo === 'enlace') hayEnlace = true;
+      }
+      // rótulo de la calle cuando el vehículo ya pasó su mitad (la avenida que solo se cruza, al cruzarla)
+      if (t.calle && D > 0 && D >= t.off + (t.tipo === 'cruce' ? 0 : t.len / 2)) {
+        const px = enPantalla(t.uv), largo = px.slice(1).reduce((a, p, i) => a + Math.hypot(p[0] - px[i][0], p[1] - px[i][1]), 0);
+        if (largo >= (t.tipo === 'cruce' ? 40 : 60) && !(nombres.get(t.calle)?.largo >= largo)) nombres.set(t.calle, { px, largo, lado: t.tipo === 'cruce' ? -1 : 1 });
+      }
+    }
+    if (s >= t0) { // el vehículo genérico, solo mientras recorre su tramo
+      const c = g.trazos.filter(t => t.tipo !== 'cruce');
+      const t = c.find(x => D <= x.off + x.len) ?? c[c.length - 1];
+      const pts = enPantalla(parcial(t, Math.min(D - t.off, t.len)));
+      const p = pts[pts.length - 1], q = pts[Math.max(0, pts.length - 2)];
+      alpha(1 - ap(s, t1 + .3, .4), () => vehiculo(p, g.vehiculo, p[0] < q[0], .9));
+    }
+  });
+  // todos los puntos dibujados (en pantalla), para poner cada nombre en el lado más despejado
+  const ocupados = [];
+  for (const g of geoms) for (const t of g.trazos) {
+    const px = enPantalla(t.uv);
+    for (let i = 1; i < px.length; i++) { // cada 12 px a lo largo del trazo
+      const n = Math.max(1, Math.ceil(Math.hypot(px[i][0] - px[i - 1][0], px[i][1] - px[i - 1][1]) / 12));
+      for (let k = 0; k <= n; k++) ocupados.push([lerp(px[i - 1][0], px[i][0], k / n), lerp(px[i - 1][1], px[i][1], k / n)]);
+    }
+  }
+  pl.recorridos.forEach(r => r.lugares.forEach(l => ocupados.push(aPantalla(enUV([l.lat, l.lon])))));
+  // los actos de la agenda (marcador y su nombre, a un lado)
+  for (const [la, lo] of evitar) {
+    const [x, y] = aPantalla(enUV([la, lo]));
+    ocupados.push([x, y]);
+    // su nombre va al lado que decide la escena (izquierda si el punto está en el tercio derecho), encima o debajo
+    const sg = x > MAPA.x + MAPA.w * .62 ? -1 : 1;
+    for (let dx = 24; dx <= 240; dx += 24) for (const dy of [-34, 40]) ocupados.push([x + sg * dx, y + dy, 30]); // texto de 30 px
+  }
+  for (const [calle, { px, largo, lado }] of nombres) {
+    // en la mitad del trazo, a lo largo de la calle y a un lado
+    let acc = 0, i = 1;
+    for (; i < px.length; i++) { const l = Math.hypot(px[i][0] - px[i - 1][0], px[i][1] - px[i - 1][1]); if (acc + l >= largo / 2) break; acc += l; }
+    const a = px[Math.min(i, px.length - 1) - 1], b = px[Math.min(i, px.length - 1)];
+    let ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+    const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    ctx.font = `700 25px ${FONT}`;
+    const media = ctx.measureText(calle).width / 2, ux = Math.cos(ang), uy = Math.sin(ang);
+    // candidatos: a lo largo de la calle a cada lado (si el nombre cabe en ella) o en horizontal a izquierda/derecha;
+    // se queda el que pasa más lejos de lo ya dibujado, de los actos y de otros nombres
+    const cand = [];
+    if (2 * media <= largo * 1.1) for (const l of lado < 0 ? [-1] : [1, -1]) cand.push({ c: [m[0] - uy * 32 * l, m[1] + ux * 32 * l], ang });
+    for (const l of [1, -1]) cand.push({ c: [m[0] + (media + 22) * l, m[1]], ang: 0 });
+    const holgura = ({ c, ang: g }) => {
+      const vx = Math.cos(g), vy = Math.sin(g);
+      let h = Infinity;
+      for (let k = -1; k <= 1; k += .2) {
+        const q = [c[0] + vx * media * k, c[1] + vy * media * k];
+        for (const o of ocupados) h = Math.min(h, Math.hypot(q[0] - o[0], q[1] - o[1]) - (o[2] ?? 14)); // holgura = distancia − radio del obstáculo
+        if (q[1] < CALLES.y - 6 || q[1] > CALLES.y + CALLES.h + 4 || q[0] < MAPA.x + 10 || q[0] > MAPA.x + MAPA.w - 10) h = -99;
+      }
+      return h;
+    };
+    const mejor = cand.reduce((a, b) => (holgura(b) > holgura(a) ? b : a));
+    txt(calle, mejor.c[0], mejor.c[1], 25, C.blanco, { w: 700, sombra: true, rot: mejor.ang });
+    const vx = Math.cos(mejor.ang), vy = Math.sin(mejor.ang);
+    for (let k = -1; k <= 1; k += .25) ocupados.push([mejor.c[0] + vx * media * k, mejor.c[1] + vy * media * k, 26]);
+  }
+  ctx.restore();
+  // lugares de partida/cambio de vehículo del anuncio que no son ya un acto de la agenda
+  pl.recorridos.forEach((r, j) => {
+    for (const l of r.lugares) {
+      if (A.paradas.some(p => p.lat !== null && Math.hypot(p.lat - l.lat, (p.lon - l.lon) * .98) < .004)) continue;
+      const xy = aPantalla(enUV([l.lat, l.lon])), ai = ap(s, tiempos[j][0], .3);
+      punto(xy, 9, C.blanco, ai);
+      txt(l.nombre, xy[0] - 20, xy[1], 25, C.mute, { al: 'right', w: 700, sombra: true, a: ai }); // a la izquierda: la ruta sigue hacia el norte
+    }
+  });
+  leyendaRecorridos([...new Set(pl.recorridos.map(r => r.vehiculo))], ap(s, .3, .4));
+  return hayEnlace;
+}
 
 /* ---------- escenas ---------- */
 const ESCENAS = {
@@ -310,20 +517,31 @@ const ESCENAS = {
     // del vuelo al mapa de Lima: el primer trozo de Lima viene del zoom del Callao
     const previo = T.trozos[T.trozos.indexOf(tr) - 1];
     // si dos lugares seguidos quedan demasiado juntos (Catedral → Plaza Mayor), la cámara se acerca a ese trozo
-    const desde = previo?.escena === 'vuelo' ? VISTAS.callao : previo?.escena === 'lima' ? vistaLima(previo) : VISTAS.lima;
-    const cam = camLerp(desde, vistaLima(tr), clamp(s / 1.4));
+    const desde = previo?.escena === 'vuelo' ? VISTAS.callao : previo?.escena === 'lima' ? vistaFinal(previo) : VISTAS.lima;
+    // recorridos anunciados (DP-002): vista de calles; sin ellos, el esquema de puntos de siempre
+    const pl = planDe(tr), ag = pl && agendaCalles(F, pl.recorridos.length);
+    const cam = pl ? camCadena(ag.claves, { ...VISTAS.calles[tr.id], desde }, s) : camLerp(desde, vistaLima(tr), clamp(s / 1.4));
     const caja = { ...MAPA };
-    // a escala de ciudad el contorno simplificado no sirve: esquema sin costa ni calles
+    // a escala de ciudad el contorno simplificado no sirve: esquema sin costa (con calles solo si hay recorrido anunciado)
     const zc = previo?.escena === 'vuelo' ? clamp(s / 1.4) : 1;
-    CAM = cam; dibujarMapa(cam, { costa: zc < .5 });
+    CAM = cam; dibujarMapa(cam, { costa: zc < .5, liso: !!pl });
     const cuando = id => { const j = nuevos.indexOf(id); return j < 0 ? -1 : (F[j] ?? 0); };
-    let hayLinea = false;
+    let hayLinea = pl ? dibujarRecorridos(pl, s, ag.rec, ap(s, .3, .4), ids.map(parada).map(p => [p.lat, p.lon])) : false;
+    // el recorrido anunciado sustituye a la recta entre el lugar de partida y el de llegada
+    const cubierto = (q, p) => pl && Math.hypot(q.lat - pl.recorridos[0].lugares[0].lat, q.lon - pl.recorridos[0].lugares[0].lon) < .01 &&
+      Math.hypot(p.lat - pl.recorridos.at(-1).lugares[1].lat, p.lon - pl.recorridos.at(-1).lugares[1].lon) < .01;
+    // con calles, lugares y traslados se recortan a su zona (al alejarse la cámara no invaden rótulos ni subtítulos)
+    if (pl) { ctx.save(); ctx.beginPath(); ctx.roundRect(MAPA.x, CALLES.y - 22, MAPA.w, CALLES.h + 30, 24); ctx.clip(); }
     ids.forEach((id, i) => {
       const p = parada(id), xy = aPantalla(P(p.lon, p.lat)), t0 = cuando(id);
       if (i > 0) {
         const q = parada(ids[i - 1]), a = aPantalla(P(q.lon, q.lat));
         // ningún traslado entre lugares distintos se omite por su distancia en pantalla
-        if (q.lugar !== p.lugar) { hayLinea = true; traslado(a, xy, ease((s - Math.max(t0, 0) + .2) / .9)); }
+        if (q.lugar !== p.lugar && !cubierto(q, p)) {
+          const u = ease(pl ? (s - ag.traslado) / .9 : (s - Math.max(t0, 0) + .2) / .9);
+          hayLinea = hayLinea || !pl || u > 0;
+          traslado(a, xy, u);
+        }
       }
       const ai = t0 < 0 ? 1 : ap(s, t0 + .5, .35);
       const activo = t0 >= 0 && s >= t0 && (nuevos.indexOf(id) === nuevos.length - 1 || s < (F[nuevos.indexOf(id) + 1] ?? 1e9));
@@ -338,23 +556,27 @@ const ESCENAS = {
       const dicho = window.GUION_DATOS?.[tr.id]?.find(x => x.parada === id)?.lugar;
       const corto = dicho ?? p.lugar.replace(/\s*\(.*\)/, '').replace(/^Basílica /, '').split(',')[0];
       const izq = xy[0] > MAPA.x + MAPA.w * .62;
-      const dy = ABAJO.includes(id) ? 40 : -34;
+      // con recorrido, el destino (Palacio) se rotula debajo: encima llega la calle del anuncio
+      const fin = pl?.recorridos.at(-1).lugares[1], alFinal = fin && Math.hypot(p.lat - fin.lat, p.lon - fin.lon) < .003;
+      const dy = ABAJO.includes(id) || alFinal ? 40 : -34;
       txt(corto, xy[0] + (izq ? -24 : 24), xy[1] + dy, 30, C.blanco, { al: izq ? 'right' : 'left', sombra: true, a: t0 < 0 ? .85 : ap(s, t0 + .6, .35), max: 460 });
     });
-    if (hayLinea) rotuloTraslado(ap(s, .6, .4), caja.y + caja.h - 44);
+    if (pl) ctx.restore();
+    if (hayLinea) rotuloTraslado(ap(s, .6, .4), pl ? 1044 : caja.y + caja.h - 44);
     // tarjeta del acto que se está nombrando
     nuevos.forEach((id, j) => {
       const p = parada(id), t0 = F[j], t1 = F[j + 1] ?? d + 1;
       const a = ap(s, t0, .35) * (1 - ap(s, t1 - .1, .25));
       alpha(a, () => {
         const y = 322 + (1 - ap(s, t0, .35)) * 24;
-        rr(70, y, 940, 180, 30, 'rgba(10,22,51,.94)', C.oro, 3);
+        rr(70, y, 940, pl ? 214 : 180, 30, 'rgba(10,22,51,.94)', C.oro, 3);
         etiqueta(`${diaCorto(p.inicio)} · ${hora(p.inicio)}`, 110, y + 48, 34, C.bg, C.oro, null, { al: 'left', w: 800 });
-        parrafo(p.nombre, 110, y + 108, 34, C.blanco, 860, { al: 'left', w: 700, maxLineas: 2 });
+        parrafo(p.nombre, 110, y + 108, 34, C.blanco, pl ? 600 : 860, { al: 'left', w: 700, maxLineas: pl ? 3 : 2 });
       });
     });
-    // foto del lugar entre la tarjeta y los puntos, con acercamiento lento
-    if (tr.foto) alpha(ap(s, .5, .4), () => foto(tr.foto, 257, 518, 566, 300, s, { zoom: .12 }));
+    // foto del lugar entre la tarjeta y los puntos, con acercamiento lento; con calles, dentro de la tarjeta
+    if (tr.foto && pl) alpha(ap(s, .5, .4), () => foto(tr.foto, 742, 338, 248, 182, s, { zoom: .12, r: 22 }));
+    else if (tr.foto) alpha(ap(s, .5, .4), () => foto(tr.foto, 257, 518, 566, 300, s, { zoom: .12 }));
     alpha(1, () => etiqueta(`${diaCorto(parada(nuevos[0] ?? ids[0]).inicio).toUpperCase()} · LIMA`, 540, 260, 30, C.oro, 'rgba(242,194,48,.12)', C.oro));
   },
 
@@ -380,48 +602,23 @@ const ESCENAS = {
   },
 
   cierre(s, d, F, tr) {
-    const fin = tr.frases[tr.frases.length - 1].t1 - tr.t0 + .35;
-    alpha(1 - ap(s, fin, .4), () => {
-      CAM = VISTAS.peru; dibujarMapa(VISTAS.peru);
-      for (const p of A.paradas.filter(p => p.lat !== null && p.inicio < '2026-11-13')) punto(aPantalla(P(p.lon, p.lat)), 8, C.rojo, .9);
-      for (const [id, c] of Object.entries(A.ciudades)) if (id !== 'lima') punto(aPantalla(P(c.lon, c.lat)), 9, C.blanco, .6);
-      alpha(ap(s, 0, .4), () => {
-        rr(70, 330, 940, 190, 32, 'rgba(10,22,51,.94)', C.oro, 3);
-        txt('Agenda prevista', 540, 390, 60, C.oro, { w: 800 });
-        txt(`sujeto a cambios · consultada ${consultada()}`, 540, 465, 36, C.blanco, { w: 600 });
-      });
-      alpha(ap(s, F[1], .4), () => {
-        rr(70, 820, 940, 300, 32, 'rgba(10,22,51,.95)', C.blanco, 3);
-        parrafo('¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?', 540, 900, 50, C.blanco, 840, { w: 800 });
-        txt('Te leo en comentarios', 540, 1070, 36, C.oro, { w: 700 });
-      });
+    // sin pantalla de créditos (R8, Fernando 11-nov): van en el comentario fijado de LinkedIn; el vídeo acaba
+    // con la pregunta y la música en fundido. Los rótulos de veracidad se quedan.
+    CAM = VISTAS.peru; dibujarMapa(VISTAS.peru);
+    for (const p of A.paradas.filter(p => p.lat !== null && p.inicio < '2026-11-13')) punto(aPantalla(P(p.lon, p.lat)), 8, C.rojo, .9);
+    for (const [id, c] of Object.entries(A.ciudades)) if (id !== 'lima') punto(aPantalla(P(c.lon, c.lat)), 9, C.blanco, .6);
+    alpha(ap(s, 0, .4), () => {
+      rr(70, 330, 940, 190, 32, 'rgba(10,22,51,.94)', C.oro, 3);
+      txt('Agenda prevista', 540, 390, 60, C.oro, { w: 800 });
+      txt(`sujeto a cambios · consultada ${consultada()}`, 540, 465, 36, C.blanco, { w: 600 });
     });
-    alpha(ap(s, fin, .4), () => creditos(s - fin));
+    alpha(ap(s, F[1], .4), () => {
+      rr(70, 800, 940, 340, 32, 'rgba(10,22,51,.95)', C.blanco, 3);
+      parrafo('¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?', 540, 870, 50, C.blanco, 840, { w: 800 });
+      txt('Te leo en comentarios', 540, 1090, 36, C.oro, { w: 700 });
+    });
   },
 };
-
-function creditos(s) {
-  const usadas = [...new Set([T.meta?.foto_portada, ...T.trozos.map(t => t.foto)].filter(Boolean))];
-  txt('Créditos', 540, 330, 64, C.oro, { w: 800 });
-  let y = 420;
-  const linea = (a, b) => {
-    txt(a, 540, y, 32, C.mute, { w: 700 }); y += 44;
-    y += parrafo(b, 540, y, 32, C.blanco, 900, { w: 500, maxLineas: 2 }) + 18;
-  };
-  linea('Agenda', `Programa oficial de la Santa Sede (press.vatican.va), consultado ${consultada()} · sujeto a cambios`);
-  linea('Mapa', 'Natural Earth (dominio público) · simulación del trayecto previsto, no es seguimiento en vivo');
-  txt('Fotos (Wikimedia Commons, recortadas)', 540, y, 32, C.mute, { w: 700 }); y += 46;
-  for (const id of usadas) {
-    const f = A.fotos[id];
-    txt(`${f.titulo.split(' (')[0]}: ${f.autor} · ${f.licencia}`, 540, y, 29, C.blanco, { w: 500, max: 940 }); y += 42;
-  }
-  y += 22;
-  linea('Voz', 'Fernando (voz sintetizada a partir de su grabación)');
-  linea('Música', 'coro original generado para este vídeo');
-  alpha(ap(s, .4, .4), () => { rr(170, y, 740, 120, 26, C.azul, null);
-    txt('Este vídeo: CC BY-SA 4.0', 540, y + 42, 40, C.blanco, { w: 800 });
-    txt('creativecommons.org/licenses/by-sa/4.0', 540, y + 88, 28, C.blanco, { w: 500 }); });
-}
 
 /* Portada fija (primeros 0,6 s y portada.png): título, foto y mapa con la ruta. */
 function portada() {
@@ -460,7 +657,7 @@ function portada() {
 const RESALTA = /\d|XIV|Callao|Lima|Chiclayo|Palacio|Catedral|Monumental|Nunciatura|Teatro|Plaza|Mayor|Base|Aérea|prevista|cambiar/;
 let T = null, GOLPES = [];
 function preparar(tiempos, agenda, peru) {
-  T = tiempos; A = agenda; GOLPES = [];
+  T = tiempos; A = agenda; GOLPES = []; REC = window.RECORRIDOS ?? null;
   if (peru) PERU = new Path2D(peru);
   for (const tr of T.trozos) for (const f of tr.frases) for (const [g, a, b] of f.golpes) GOLPES.push({ g, a, b });
   prepararVistas();
@@ -508,9 +705,8 @@ function reelIr(t) {
   txt(`LEÓN XIV EN PERÚ · ${T.meta?.parte ?? ''} · ${(T.meta?.tramo ?? '').toUpperCase()}`, 60, 125, 30, C.mute, { al: 'left', w: 700 });
   alpha(ap(s, 0, .35), () => ESCENAS[tr.escena](s, d, F, tr));
   subtitulo(t);
-  if (!(tr.escena === 'cierre' && s > tr.frases[tr.frases.length - 1].t1 - t0 + .35)) {
-    txt(`Agenda oficial de la Santa Sede · consultada ${consultada()} · sujeto a cambios`, 540, 1440, 28, C.mute, { w: 500, max: 960 });
-  }
+  // rótulo de veracidad hasta el último cuadro (ya no hay pantalla de créditos que lo sustituya)
+  txt(`Agenda oficial de la Santa Sede · consultada ${consultada()} · sujeto a cambios`, 540, 1440, 28, C.mute, { w: 500, max: 960 });
 }
 window.reelIr = reelIr;
 window.reelPreparar = preparar;

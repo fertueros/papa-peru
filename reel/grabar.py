@@ -7,11 +7,12 @@
     python grabar.py <carpeta-voz> --parte 1-lima --destino … --musica coro.wav --remezclar # solo el audio
 
 Con --musica, la música va bajo la voz con «ducking» (sidechaincompress: ~20 dB bajo la voz mientras se habla y
-sube suave en portada, pausas y créditos); la mezcla se normaliza en dos pasadas a -14 LUFS, pico -1,5 dBTP.
+sube suave en portada, pausas y en el fundido final); la mezcla se normaliza en dos pasadas a -14 LUFS, pico -1,5 dBTP.
 --remezclar reutiliza los cuadros del reel.mp4 ya grabado y solo rehace el audio.
 
 Inyecta en la página la agenda oficial (site/data/agenda.json), el contorno del Perú
-(site/img/peru.svg, Natural Earth) y los «datos» del guion. Necesita Playwright con Chromium y ffmpeg.
+(site/img/peru.svg, Natural Earth), los «datos» del guion y, si existe, partes/<parte>/recorridos.json
+(recorridos anunciados con geometría de OpenStreetMap ya guardada: el render no consulta OSM). Necesita Playwright con Chromium y ffmpeg.
 """
 
 from __future__ import annotations
@@ -28,10 +29,13 @@ from playwright.sync_api import sync_playwright
 
 AQUI = Path(__file__).resolve().parent
 SITE = AQUI.parent / "site"
-# instantes de las capturas de evidencia: portada, gancho, vuelo, Lima (11, traslado corto y 12), norte y créditos
+# instantes de las capturas de evidencia: portada, gancho, vuelo, Lima (recorridos anunciados del 11 y 12, traslados),
+# norte y cierre (la pregunta final: ya no hay pantalla de créditos)
 CAPTURAS = {"portada": 0.2, "gancho": "gancho+2.2", "vuelo": "vuelo+3.0", "aterrizaje": "vuelo-0.6",
-            "lima-11": "noche-11-0.8", "traslado-catedral-plaza": "manana-12-3.0", "lima-12": "tarde-12-0.8",
-            "norte": "norte-0.6", "creditos": "fin-0.8"}
+            "recorrido-11-cerrado": "noche-11+1.6", "recorrido-11-papamovil": "noche-11+4.3",
+            "lima-11": "noche-11-0.8", "recorrido-12-papamovil": "manana-12+4.3",
+            "traslado-catedral-plaza": "manana-12-3.0", "lima-12": "tarde-12-0.8",
+            "norte": "norte-0.6", "cierre": "fin-0.3"}
 
 
 def instante(clave, tiempos: dict) -> float:
@@ -52,7 +56,7 @@ def mezclar(voz: Path, musica: Path | None, duracion: float, salida: Path) -> di
     """Voz (+ música con ducking) → WAV estéreo 48 kHz normalizado en dos pasadas. Devuelve la medida final."""
     if musica:
         grafo = (
-            "[0:a]aresample=48000,pan=stereo|c0=c0|c1=c0,asplit=2[voz][clave];"
+            f"[0:a]atrim=0:{duracion:.3f},aresample=48000,pan=stereo|c0=c0|c1=c0,asplit=2[voz][clave];"
             f"[1:a]aresample=48000,atrim=0:{duracion:.3f},asetpts=N/SR/TB,"
             f"afade=t=in:d=1.2,afade=t=out:st={max(duracion - 2.5, 0):.3f}:d=2.5,volume={MUSICA_BASE_DB}dB[mus];"
             # mientras se habla la música baja ~20 dB respecto a la voz (medido); suelta lenta para que no bombee
@@ -61,7 +65,7 @@ def mezclar(voz: Path, musica: Path | None, duracion: float, salida: Path) -> di
         )
         entradas = ["-i", str(voz), "-i", str(musica)]
     else:
-        grafo = "[0:a]aresample=48000,pan=stereo|c0=c0|c1=c0[mezcla]"
+        grafo = f"[0:a]atrim=0:{duracion:.3f},aresample=48000,pan=stereo|c0=c0|c1=c0[mezcla]"
         entradas = ["-i", str(voz)]
     medir = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", *entradas, "-filter_complex",
@@ -101,7 +105,13 @@ def main() -> None:
         tr["mapa"], tr["foto"] = g.get("mapa", {}), g.get("foto")
     tiempos["meta"] = {k: guion.get(k) for k in ("titulo", "parte", "tramo", "fechas", "foto_portada")}
     datos = {t["id"]: t.get("datos", []) for t in guion["trozos"]}
-    duracion = tiempos["duracion"]
+    fichero_rec = AQUI / "partes" / a.parte / "recorridos.json"
+    recorridos = json.loads(fichero_rec.read_text(encoding="utf-8")) if fichero_rec.exists() else None
+    # sin pantalla de créditos (R8): la cola tras la última frase es la del guion actual; si la voz se grabó con
+    # una cola más larga, se recorta aquí (vídeo y voz) sin regenerar la voz
+    ultima = tiempos["trozos"][-1]["frases"][-1]["t1"]
+    duracion = round(min(tiempos["duracion"], ultima + float(guion.get("cola", 2.5))), 3)
+    tiempos["duracion"] = tiempos["trozos"][-1]["t1"] = duracion
     musica = a.musica.resolve() if a.musica else None
     if musica and not musica.exists():
         sys.exit(f"no existe la música {musica}")
@@ -128,6 +138,7 @@ def main() -> None:
             f"window.TIEMPOS = {json.dumps(tiempos, ensure_ascii=False)};"
             f"window.AGENDA = {json.dumps(agenda, ensure_ascii=False)};"
             f"window.GUION_DATOS = {json.dumps(datos, ensure_ascii=False)};"
+            f"window.RECORRIDOS = {json.dumps(recorridos, ensure_ascii=False)};"
             f"window.PERU_D = {json.dumps(peru)};")
         errores = []
         pagina.on("pageerror", lambda e: errores.append(str(e)))
