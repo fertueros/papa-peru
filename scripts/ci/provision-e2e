@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Prepara lo que necesitan los E2E: el navegador fijado y los datos sintéticos.
+# Dos guardas independientes: entorno (E2E_ENV) y destino de datos (E2E_INSTANCE), ambas solo
+# local/test/e2e; producción o un valor desconocido se rechazan antes de hacer nada.
+# No hay usuarios ni credenciales: la web es pública. Idempotente. Desde la raíz del repo.
+set -eu
+case "${E2E_ENV:-}" in
+  local|test|e2e) ;;
+  prod|production) exit 3 ;;
+  *) exit 4 ;;
+esac
+case "${E2E_INSTANCE:-}" in
+  local|test|e2e) ;;
+  prod|production) exit 5 ;;
+  *) exit 6 ;;
+esac
+node_modules/.bin/playwright install chromium
+node e2e/comprobar-fixtures.mjs "$E2E_INSTANCE"

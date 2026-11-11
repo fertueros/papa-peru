@@ -1,0 +1,196 @@
+{
+ "actualizado": "2026-11-11T18:09:50.745Z",
+ "fuente": "Open-Meteo",
+ "ciudades": {
+  "lima": {
+   "temp": 25,
+   "cielo": "nublado",
+   "lluvia_prob": 0,
+   "hora": "2026-11-11T13:00:00-05:00",
+   "dias": {
+    "2026-11-11": {
+     "max": 25,
+     "min": 22,
+     "lluvia_prob": 49
+    },
+    "2026-11-12": {
+     "max": 25,
+     "min": 21,
+     "lluvia_prob": 68
+    },
+    "2026-11-13": {
+     "max": 25,
+     "min": 22,
+     "lluvia_prob": 37
+    },
+    "2026-11-14": {
+     "max": 25,
+     "min": 22,
+     "lluvia_prob": 20
+    },
+    "2026-11-15": {
+     "max": 26,
+     "min": 23,
+     "lluvia_prob": 12
+    },
+    "2026-11-16": {
+     "max": 26,
+     "min": 23,
+     "lluvia_prob": 8
+    }
+   }
+  },
+  "chiclayo": {
+   "temp": 29,
+   "cielo": "nublado",
+   "lluvia_prob": 25,
+   "hora": "2026-11-11T13:00:00-05:00",
+   "dias": {
+    "2026-11-11": {
+     "max": 30,
+     "min": 25,
+     "lluvia_prob": 25
+    },
+    "2026-11-12": {
+     "max": 31,
+     "min": 25,
+     "lluvia_prob": 40
+    },
+    "2026-11-13": {
+     "max": 31,
+     "min": 25,
+     "lluvia_prob": 39
+    },
+    "2026-11-14": {
+     "max": 32,
+     "min": 25,
+     "lluvia_prob": 55
+    },
+    "2026-11-15": {
+     "max": 31,
+     "min": 25,
+     "lluvia_prob": 52
+    },
+    "2026-11-16": {
+     "max": 33,
+     "min": 25,
+     "lluvia_prob": 32
+    }
+   }
+  },
+  "succhabamba": {
+   "temp": 25,
+   "cielo": "nublado",
+   "lluvia_prob": 78,
+   "hora": "2026-11-11T13:00:00-05:00",
+   "dias": {
+    "2026-11-11": {
+     "max": 25,
+     "min": 14,
+     "lluvia_prob": 94
+    },
+    "2026-11-12": {
+     "max": 24,
+     "min": 14,
+     "lluvia_prob": 100
+    },
+    "2026-11-13": {
+     "max": 24,
+     "min": 13,
+     "lluvia_prob": 100
+    },
+    "2026-11-14": {
+     "max": 25,
+     "min": 13,
+     "lluvia_prob": 100
+    },
+    "2026-11-15": {
+     "max": 23,
+     "min": 15,
+     "lluvia_prob": 100
+    },
+    "2026-11-16": {
+     "max": 23,
+     "min": 15,
+     "lluvia_prob": 89
+    }
+   }
+  },
+  "cusco": {
+   "temp": 16,
+   "cielo": "llovizna",
+   "lluvia_prob": 100,
+   "hora": "2026-11-11T13:00:00-05:00",
+   "dias": {
+    "2026-11-11": {
+     "max": 17,
+     "min": 8,
+     "lluvia_prob": 100
+    },
+    "2026-11-12": {
+     "max": 20,
+     "min": 6,
+     "lluvia_prob": 84
+    },
+    "2026-11-13": {
+     "max": 21,
+     "min": 8,
+     "lluvia_prob": 92
+    },
+    "2026-11-14": {
+     "max": 19,
+     "min": 7,
+     "lluvia_prob": 90
+    },
+    "2026-11-15": {
+     "max": 21,
+     "min": 7,
+     "lluvia_prob": 73
+    },
+    "2026-11-16": {
+     "max": 22,
+     "min": 5,
+     "lluvia_prob": 4
+    }
+   }
+  },
+  "pucallpa": {
+   "temp": 33,
+   "cielo": "mayormente despejado",
+   "lluvia_prob": 20,
+   "hora": "2026-11-11T13:00:00-05:00",
+   "dias": {
+    "2026-11-11": {
+     "max": 33,
+     "min": 24,
+     "lluvia_prob": 37
+    },
+    "2026-11-12": {
+     "max": 31,
+     "min": 23,
+     "lluvia_prob": 90
+    },
+    "2026-11-13": {
+     "max": 31,
+     "min": 24,
+     "lluvia_prob": 75
+    },
+    "2026-11-14": {
+     "max": 31,
+     "min": 25,
+     "lluvia_prob": 49
+    },
+    "2026-11-15": {
+     "max": 33,
+     "min": 25,
+     "lluvia_prob": 31
+    },
+    "2026-11-16": {
+     "max": 34,
+     "min": 25,
+     "lluvia_prob": 41
+    }
+   }
+  }
+ }
+}

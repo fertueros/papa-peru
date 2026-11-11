@@ -1,0 +1,309 @@
+:root {
+  --tinta: #1d1d1f;
+  --suave: #4a4a52;
+  --fondo: #faf8f5;
+  --tarjeta: #ffffff;
+  --acento: #7a1f2b;
+  --linea: #ddd7cf;
+  --aviso: #8a4b00;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--fondo);
+}
+
+a {
+  color: var(--acento);
+}
+
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #1a5fb4;
+  outline-offset: 2px;
+}
+
+.cab {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--acento);
+  color: #fff;
+}
+
+.cab p {
+  margin: 0;
+}
+
+.marca {
+  font-weight: 700;
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+h1 {
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
+  color: var(--suave);
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+
+.ahora {
+  background: var(--tarjeta);
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.estado {
+  font-size: 1.625rem;
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.lugar {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+}
+
+.origen {
+  margin: 0.25rem 0 0;
+  color: var(--suave);
+}
+
+.origen strong {
+  color: var(--tinta);
+}
+
+.antiguo {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.4rem;
+  border-radius: 4px;
+  background: #fff1d6;
+  color: var(--aviso);
+  font-weight: 700;
+}
+
+.barra {
+  height: 0.75rem;
+  background: var(--linea);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+
+.barra > span {
+  display: block;
+  height: 100%;
+  background: var(--acento);
+}
+
+.paneles {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .paneles {
+    grid-template-columns: 3fr 2fr;
+  }
+  .foto {
+    grid-row: span 2;
+  }
+}
+
+.foto {
+  margin: 0;
+}
+
+.foto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--linea);
+}
+
+.foto figcaption,
+.pie {
+  font-size: 1rem;
+  color: var(--suave);
+  margin: 0.25rem 0 0;
+}
+
+.mapa svg {
+  display: block;
+  width: 100%;
+  max-width: 11rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.marca-ciudad {
+  fill: #fff;
+  stroke: var(--acento);
+  stroke-width: 2;
+}
+
+.marca-actual {
+  fill: var(--acento);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.ruta {
+  fill: none;
+  stroke: var(--acento);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+
+.avion-real {
+  fill: #1a5fb4;
+}
+
+.avion-estimado {
+  fill: #fff;
+  stroke: #1a5fb4;
+  stroke-width: 2;
+  stroke-dasharray: 2 2;
+}
+
+.clima-ahora {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.proxima {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: #f4eee6;
+  font-size: 1.125rem;
+}
+
+.proxima p {
+  margin: 0;
+}
+
+.cuenta {
+  font-weight: 700;
+}
+
+.agenda {
+  margin-top: 1.5rem;
+}
+
+.dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dias button {
+  font: inherit;
+  font-size: 1rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--acento);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--acento);
+  cursor: pointer;
+}
+
+.dias button[aria-selected="true"] {
+  background: var(--acento);
+  color: #fff;
+}
+
+.dia ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dia li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+.dia .h {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5rem;
+}
+
+.dia .tramo {
+  color: var(--suave);
+}
+
+.dia li.actual {
+  background: #fbeff0;
+}
+
+.clima-dia {
+  display: block;
+  color: var(--suave);
+}
+
+.cabecera-dia {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.pie-pagina {
+  max-width: 46rem;
+  margin: 1.5rem auto 0;
+  padding: 1rem;
+  font-size: 1rem;
+  color: var(--suave);
+  border-top: 1px solid var(--linea);
+}
+
+.creditos ul {
+  padding-left: 1.25rem;
+}
+
+/* Hasta el primer render no se muestra el contenido: evita saltos de maquetación (CLS). */
+.cargando main,
+.cargando footer {
+  visibility: hidden;
+}
+
+[hidden] {
+  display: none;
+}

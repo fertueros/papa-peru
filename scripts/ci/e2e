@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# End-to-end de la portada con Playwright contra dist/ servido en local. Desde la raíz del repo.
+# Los E2E de esta web siempre corren en local contra datos sintéticos (e2e/fixtures/).
+set -eua
+E2E_ENV=local
+E2E_INSTANCE=e2e
+scripts/ci/provision-e2e
+node scripts/build.mjs
+node_modules/.bin/playwright test

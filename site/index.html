@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es" class="cargando">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dónde está el papa León XIV en Perú · ahora</title>
+<meta name="description" content="Sigue la visita del papa León XIV en Perú: dónde está ahora según la agenda oficial, la próxima parada, la agenda por días y el clima de cada ciudad.">
+<meta name="theme-color" content="#7a1f2b">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_PE">
+<meta property="og:site_name" content="Ruta del papa en Perú">
+<meta property="og:url" content="https://fertueros.github.io/papa-peru/">
+<meta property="og:title" content="Dónde está el papa León XIV en Perú">
+<meta property="og:description" content="Sigue la visita del papa León XIV en Perú: dónde está, la próxima parada, la agenda por días y el clima de cada ciudad.">
+<meta property="og:image" content="https://fertueros.github.io/papa-peru/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Silueta del Perú con la ruta de la visita del papa León XIV">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dónde está el papa León XIV en Perú">
+<meta name="twitter:description" content="Sigue la visita del papa León XIV en Perú: dónde está, la próxima parada, la agenda por días y el clima de cada ciudad.">
+<meta name="twitter:image" content="https://fertueros.github.io/papa-peru/og.png">
+<link rel="icon" href="img/peru.svg" type="image/svg+xml">
+<link rel="preload" href="data/agenda.json" as="fetch" crossorigin>
+<link rel="stylesheet" href="estilos.css">
+<noscript><style>.cargando main,.cargando footer{visibility:visible}</style></noscript>
+<script type="module" src="js/portada.js"></script>
+</head>
+<body>
+<header class="cab">
+  <p class="marca">Ruta del papa León XIV en Perú</p>
+  <p class="reloj">Hora de Perú: <time id="reloj">--:--</time></p>
+</header>
+
+<main>
+  <section id="ahora" class="ahora" aria-labelledby="ahora-titulo" aria-live="polite">
+    <h1 id="ahora-titulo">Dónde está el papa ahora</h1>
+    <div id="ahora-cuerpo">
+      <p class="cargando">Cargando la agenda…</p>
+    </div>
+    <div id="proxima" class="proxima" hidden></div>
+    <noscript><p>Esta página necesita JavaScript para calcular dónde está el papa según la hora de Perú.</p></noscript>
+
+    <div class="paneles">
+      <figure id="foto" class="foto" hidden>
+        <img id="foto-img" alt="" width="800" height="450" decoding="async" fetchpriority="high">
+        <figcaption id="foto-pie"></figcaption>
+      </figure>
+
+      <div id="mapa" class="mapa" hidden>
+        <svg id="mapa-svg" viewBox="0 0 259 375" role="img" aria-labelledby="mapa-desc">
+          <title id="mapa-desc">Mapa del Perú</title>
+          <image href="img/peru.svg" width="259" height="375"></image>
+          <g id="mapa-marcas"></g>
+        </svg>
+        <p id="mapa-pie" class="pie"></p>
+      </div>
+
+      <div id="clima" class="clima" hidden>
+        <h2>Clima</h2>
+        <p id="clima-ahora" class="clima-ahora"></p>
+        <p id="clima-pie" class="pie"></p>
+      </div>
+    </div>
+
+  </section>
+
+  <section id="agenda" class="agenda" aria-labelledby="agenda-titulo">
+    <h2 id="agenda-titulo">Agenda por días</h2>
+    <div id="dias" class="dias" role="tablist" aria-label="Días de la visita"></div>
+    <div id="dia" class="dia" role="tabpanel"></div>
+  </section>
+</main>
+
+<footer class="pie-pagina">
+  <p>Horas en hora de Perú (UTC−5). «Ahora mismo» se calcula con la agenda oficial y, si las hay, con detecciones de fuentes oficiales; nunca se muestra una ubicación real del papa en tierra, solo el lugar público del acto.</p>
+  <p id="fuente-agenda"></p>
+  <p>Clima: <a href="https://open-meteo.com/">Open-Meteo</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.es">CC BY 4.0</a>). Mapas: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>. Contorno del Perú: <a href="https://www.naturalearthdata.com/">Natural Earth</a> (dominio público).</p>
+  <details id="creditos" class="creditos" hidden>
+    <summary>Créditos de las fotos</summary>
+    <ul id="creditos-lista"></ul>
+  </details>
+  <p>Proyecto ciudadano sin relación oficial con la Santa Sede ni con la Conferencia Episcopal Peruana.</p>
+</footer>
+</body>
+</html>

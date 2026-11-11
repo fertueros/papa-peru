@@ -11,3 +11,7 @@ Thumbs.db
 
 # Lo generado en local (logs, capturas, dumps).
 .runtime/
+node_modules/
+dist/
+playwright-report/
+test-results/

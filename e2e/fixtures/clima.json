@@ -1,0 +1,11 @@
+{
+  "actualizado": "2026-11-13T10:40:00-05:00",
+  "fuente": "Open-Meteo",
+  "ciudades": {
+    "lima": { "temp": 21, "cielo": "nublado", "lluvia_prob": 10, "hora": "2026-11-13T10:00:00-05:00", "dias": { "2026-11-11": { "max": 24, "min": 19, "lluvia_prob": 10 }, "2026-11-12": { "max": 24, "min": 19, "lluvia_prob": 10 }, "2026-11-16": { "max": 25, "min": 19, "lluvia_prob": 5 } } },
+    "chiclayo": { "temp": 27, "cielo": "despejado", "lluvia_prob": 5, "hora": "2026-11-13T10:00:00-05:00", "dias": { "2026-11-13": { "max": 29, "min": 19, "lluvia_prob": 5 }, "2026-11-14": { "max": 28, "min": 19, "lluvia_prob": 5 } } },
+    "succhabamba": { "temp": 14, "cielo": "nublado", "lluvia_prob": 40, "hora": "2026-11-13T10:00:00-05:00", "dias": { "2026-11-14": { "max": 18, "min": 9, "lluvia_prob": 60 } } },
+    "cusco": { "temp": 16, "cielo": "parcialmente nublado", "lluvia_prob": 30, "hora": "2026-11-13T10:00:00-05:00", "dias": { "2026-11-15": { "max": 20, "min": 6, "lluvia_prob": 45 } } },
+    "pucallpa": { "temp": 31, "cielo": "chubascos", "lluvia_prob": 55, "hora": "2026-11-13T10:00:00-05:00", "dias": { "2026-11-15": { "max": 33, "min": 22, "lluvia_prob": 70 } } }
+  }
+}

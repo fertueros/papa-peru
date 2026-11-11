@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Linter y formato con Biome (versión fijada en package-lock.json). Desde la raíz del repo.
+set -euo pipefail
+npm ci --no-audit --no-fund
+npx --no-install biome ci .

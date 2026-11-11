@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Auditoría de dependencias: falla con vulnerabilidades altas o críticas. Desde la raíz del repo.
+set -euo pipefail
+npm audit --audit-level=high
