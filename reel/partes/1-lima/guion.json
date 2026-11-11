@@ -1,0 +1,90 @@
+{
+  "titulo": "El papa León XIV en Perú · 1/3 · Lima y Callao",
+  "parte": "1/3",
+  "tramo": "Lima y Callao",
+  "fechas": "11-13 nov 2026",
+  "foto_portada": "lima-catedral",
+  "entrada": 0.75,
+  "cola": 5.5,
+  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda).",
+  "trozos": [
+    {
+      "id": "gancho",
+      "escena": "gancho",
+      "voz": "En seis días, ¿por dónde pasará León catorce en el Perú? Este es el recorrido previsto, empezando por Lima y el Callao.",
+      "texto": "En 6 días, ¿por dónde pasará León XIV en el Perú? Este es el recorrido previsto, empezando por Lima y el Callao.",
+      "datos": []
+    },
+    {
+      "id": "vuelo",
+      "escena": "vuelo",
+      "mapa": { "tramos": ["buenosaires-lima"] },
+      "voz": "Este miércoles once sale de Buenos Aires a las doce del día, hora peruana. Y a las cinco y media de la tarde aterriza en la Base Aérea del Callao.",
+      "texto": "Este miércoles 11 sale de Buenos Aires a las 12:00, hora peruana. Y a las 17:30 aterriza en la Base Aérea del Callao.",
+      "datos": [
+        {
+          "tramo": "buenosaires-lima",
+          "campo": "salida",
+          "hora": "12:00",
+          "dia": "miércoles 11",
+          "lugar": "Buenos Aires"
+        },
+        { "parada": "llegada-callao", "hora": "17:30", "lugar": "Base Aérea del Callao" }
+      ]
+    },
+    {
+      "id": "noche-11",
+      "escena": "lima",
+      "mapa": { "paradas": ["llegada-callao", "bienvenida-palacio-gobierno", "encuentro-autoridades-gtn"] },
+      "foto": "lima-palacio",
+      "voz": "A las seis y cuarto, ceremonia de bienvenida en el Palacio de Gobierno. A las siete y cuarenta y cinco, encuentro con las autoridades en el Gran Teatro Nacional.",
+      "texto": "A las 18:15, ceremonia de bienvenida en el Palacio de Gobierno. A las 19:45, encuentro con las autoridades en el Gran Teatro Nacional.",
+      "datos": [
+        { "parada": "bienvenida-palacio-gobierno", "hora": "18:15", "lugar": "Palacio de Gobierno" },
+        { "parada": "encuentro-autoridades-gtn", "hora": "19:45", "lugar": "Gran Teatro Nacional" }
+      ]
+    },
+    {
+      "id": "manana-12",
+      "escena": "lima",
+      "mapa": { "paradas": ["hora-media-catedral-lima", "encuentro-plaza-catedral-lima"] },
+      "foto": "lima-catedral",
+      "voz": "El jueves doce, a las diez y veinte, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las once y media, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",
+      "texto": "El jueves 12, a las 10:20, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las 11:30, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",
+      "datos": [
+        { "parada": "hora-media-catedral-lima", "hora": "10:20", "dia": "jueves 12", "lugar": "Catedral" },
+        { "parada": "encuentro-plaza-catedral-lima", "hora": "11:30", "lugar": "Plaza Mayor" }
+      ]
+    },
+    {
+      "id": "tarde-12",
+      "escena": "lima",
+      "mapa": { "paradas": ["encuentro-plaza-catedral-lima", "vigilia-jovenes-monumental", "cena-obispos-nunciatura"] },
+      "foto": "lima-nunciatura",
+      "voz": "A las seis de la tarde, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las ocho de la noche, cena con los obispos en la Nunciatura Apostólica.",
+      "texto": "A las 18:00, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las 20:00, cena con los obispos en la Nunciatura Apostólica.",
+      "datos": [
+        { "parada": "vigilia-jovenes-monumental", "hora": "18:00", "lugar": "Estadio Monumental" },
+        { "parada": "cena-obispos-nunciatura", "hora": "20:00", "lugar": "Nunciatura Apostólica" }
+      ]
+    },
+    {
+      "id": "norte",
+      "escena": "norte",
+      "mapa": { "tramos": ["lima-chiclayo"] },
+      "foto": "chiclayo-catedral",
+      "voz": "El viernes trece, a las siete y cuarenta de la mañana, despega hacia Chiclayo, la ciudad donde fue obispo. Ese viaje al norte será la parte dos.",
+      "texto": "El viernes 13, a las 07:40, despega hacia Chiclayo, la ciudad donde fue obispo. Ese viaje al norte será la parte 2.",
+      "datos": [
+        { "tramo": "lima-chiclayo", "campo": "salida", "hora": "07:40", "dia": "viernes 13", "lugar": "Chiclayo" }
+      ]
+    },
+    {
+      "id": "cierre",
+      "escena": "cierre",
+      "voz": "Es la agenda prevista y puede cambiar. ¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?",
+      "texto": "Es la agenda prevista y puede cambiar. ¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?",
+      "datos": []
+    }
+  ]
+}
