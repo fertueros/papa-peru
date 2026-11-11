@@ -115,6 +115,15 @@ function encuadre(puntos, margen = .78, caja = MAPA) {
   return { cx: (u0 + u1) / 2 - dx / k, cy: (v0 + v1) / 2 - dy / k, k };
 }
 const VISTAS = {};
+const TRASLADO_MIN = 80; // px: un traslado más corto apenas se vería; la cámara se acerca hasta ~2× esa longitud
+/* Cámara de un trozo de Lima: la vista general, o más cerca si dos lugares seguidos quedan juntos. */
+function vistaLima(tr) {
+  const pts = (tr.mapa?.paradas ?? []).map(id => parada(id)).map(p => P(p.lon, p.lat));
+  const tramos = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])).filter(x => x > 0);
+  if (!tramos.length || Math.min(...tramos) * VISTAS.lima.k >= TRASLADO_MIN) return VISTAS.lima;
+  const v = encuadre(pts, .84, LIMA_PUNTOS);
+  return { ...v, k: Math.max(v.k, TRASLADO_MIN * 2.5 / Math.min(...tramos)) };
+}
 const LIMA_PUNTOS = { x: 60, y: 880, w: 960, h: 190 }; // franja del mapa de Lima bajo la foto
 function prepararVistas() {
   VISTAS.peru = { cx: 130, cy: 190, k: 2.15 };
@@ -302,7 +311,9 @@ const ESCENAS = {
     const nuevos = (window.GUION_DATOS?.[tr.id] ?? []).map(x => x.parada).filter(Boolean);
     // del vuelo al mapa de Lima: el primer trozo de Lima viene del zoom del Callao
     const previo = T.trozos[T.trozos.indexOf(tr) - 1];
-    const cam = previo?.escena === 'vuelo' ? camLerp(VISTAS.callao, VISTAS.lima, clamp(s / 1.4)) : VISTAS.lima;
+    // si dos lugares seguidos quedan demasiado juntos (Catedral → Plaza Mayor), la cámara se acerca a ese trozo
+    const desde = previo?.escena === 'vuelo' ? VISTAS.callao : previo?.escena === 'lima' ? vistaLima(previo) : VISTAS.lima;
+    const cam = camLerp(desde, vistaLima(tr), clamp(s / 1.4));
     const caja = { ...MAPA };
     // a escala de ciudad el contorno simplificado no sirve: esquema sin costa ni calles
     const zc = previo?.escena === 'vuelo' ? clamp(s / 1.4) : 1;
@@ -313,8 +324,8 @@ const ESCENAS = {
       const p = parada(id), xy = aPantalla(P(p.lon, p.lat)), t0 = cuando(id);
       if (i > 0) {
         const q = parada(ids[i - 1]), a = aPantalla(P(q.lon, q.lat));
-        const dist = Math.hypot(xy[0] - a[0], xy[1] - a[1]);
-        if (dist > 6) { hayLinea = true; traslado(a, xy, ease((s - Math.max(t0, 0) + .2) / .9)); }
+        // ningún traslado entre lugares distintos se omite por su distancia en pantalla
+        if (q.lugar !== p.lugar) { hayLinea = true; traslado(a, xy, ease((s - Math.max(t0, 0) + .2) / .9)); }
       }
       const ai = t0 < 0 ? 1 : ap(s, t0 + .5, .35);
       const activo = t0 >= 0 && s >= t0 && (nuevos.indexOf(id) === nuevos.length - 1 || s < (F[nuevos.indexOf(id) + 1] ?? 1e9));
@@ -325,7 +336,9 @@ const ESCENAS = {
     ids.forEach((id) => {
       const p = parada(id), xy = aPantalla(P(p.lon, p.lat)), t0 = cuando(id);
       if (t0 < 0 && previo?.escena !== 'vuelo') return; // el punto de partida ya se nombró en la escena anterior
-      const corto = p.lugar.replace(/\s*\(.*\)/, '').replace(/^Basílica /, '').split(',')[0];
+      // el nombre que dice el guion («Catedral», «Plaza Mayor»); si no lo declara, el de la agenda abreviado
+      const dicho = window.GUION_DATOS?.[tr.id]?.find(x => x.parada === id)?.lugar;
+      const corto = dicho ?? p.lugar.replace(/\s*\(.*\)/, '').replace(/^Basílica /, '').split(',')[0];
       const izq = xy[0] > MAPA.x + MAPA.w * .62;
       const dy = ABAJO.includes(id) ? 40 : -34;
       txt(corto, xy[0] + (izq ? -24 : 24), xy[1] + dy, 30, C.blanco, { al: izq ? 'right' : 'left', sombra: true, a: t0 < 0 ? .85 : ap(s, t0 + .6, .35), max: 460 });
@@ -406,7 +419,8 @@ function creditos(s) {
     txt(`${f.titulo.split(' (')[0]}: ${f.autor} · ${f.licencia}`, 540, y, 29, C.blanco, { w: 500, max: 940 }); y += 42;
   }
   y += 22;
-  linea('Voz', 'Fernando (voz sintetizada a partir de su grabación) · sin música');
+  linea('Voz', 'Fernando (voz sintetizada a partir de su grabación)');
+  linea('Música', 'coro original generado para este vídeo');
   alpha(ap(s, .4, .4), () => { rr(170, y, 740, 120, 26, C.azul, null);
     txt('Este vídeo: CC BY-SA 4.0', 540, y + 42, 40, C.blanco, { w: 800 });
     txt('creativecommons.org/licenses/by-sa/4.0', 540, y + 88, 28, C.blanco, { w: 500 }); });

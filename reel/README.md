@@ -67,4 +67,7 @@ en la franja central (y ≈ 1300 px), lejos de los botones de Instagram/TikTok.
 
 Fotos de Wikimedia Commons (autor y licencia en `site/data/agenda.json`, recortadas); como varias son
 CC BY-SA 4.0, **el vídeo se publica bajo CC BY-SA 4.0**. Mapa: Natural Earth (dominio público).
-Agenda: programa oficial de la Santa Sede. Sin música.
+Agenda: programa oficial de la Santa Sede. Música: coro original generado para este vídeo (sin letra ni
+melodías existentes; `../.runtime/reels/musica/coro.wav`, fuera de git), mezclado bajo la voz con
+ducking: ~20 dB por debajo mientras se habla, suave en portada, pausas y créditos; mezcla a -14 LUFS,
+pico ≤ -1,5 dBTP. Sin música de bibliotecas de redes sociales.

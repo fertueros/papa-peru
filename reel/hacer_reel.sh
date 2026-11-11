@@ -5,6 +5,11 @@
 #   reel/hacer_reel.sh 1-lima --rehacer "Gran Teatro"   # otra toma solo de esa frase
 #   reel/hacer_reel.sh 1-lima --solo-voz            # para revisar la voz sin grabar vídeo
 #   reel/hacer_reel.sh 1-lima --solo-video          # reusar la voz ya hecha
+#   reel/hacer_reel.sh 1-lima --solo-video --remezclar   # solo rehacer el audio (voz + música)
+#   reel/hacer_reel.sh 1-lima --sin-musica          # sin música de fondo
+#
+# Música: por defecto ../.runtime/reels/musica/coro.wav (coro original del proyecto) si existe, o
+# --musica <wav>; va bajo la voz con ducking (ver grabar.py).
 #
 # Lee reel/partes/<parte>/guion.json y site/data/agenda.json. Todo lo generado (voz, frases, MP4,
 # portada, capturas) va a ../.runtime/reels/<parte>/ del meta-repo (o $REEL_SALIDA): FUERA de git.
@@ -25,6 +30,8 @@ mkdir -p "$SALIDA/voz" "$SALIDA/capturas"
 
 solo_voz=0
 solo_video=0
+musica=$(cd ../../.. && pwd)/.runtime/reels/musica/coro.wav
+remezclar=()
 timbre=$ORIGEN/voces/piper_claude_ref.wav
 args=(--clonar "$ORIGEN/voces/voz_1_ref.wav" --ref-texto "$ORIGEN/voces/voz_1_ref.txt" --metodo qwen)
 while [ $# -gt 0 ]; do
@@ -33,6 +40,9 @@ while [ $# -gt 0 ]; do
     --sin-timbre) timbre=""; shift ;;
     --solo-voz) solo_voz=1; shift ;;
     --solo-video) solo_video=1; shift ;;
+    --musica) musica=$2; shift 2 ;;
+    --sin-musica) musica=""; shift ;;
+    --remezclar) remezclar=(--remezclar); shift ;;
     *) args+=("$1"); shift ;;
   esac
 done
@@ -54,4 +64,7 @@ if [ "$solo_video" = 0 ]; then
 fi
 [ "$solo_voz" = 1 ] && { echo "Voz lista: $carpeta"; exit 0; }
 
-uv run --no-project --with playwright==1.65.0 python grabar.py "$carpeta" --parte "$parte" --destino "$SALIDA"
+con_musica=()
+if [ -n "$musica" ] && [ -f "$musica" ]; then con_musica=(--musica "$musica"); else echo "Sin música de fondo"; fi
+uv run --no-project --with playwright==1.65.0 python grabar.py "$carpeta" --parte "$parte" --destino "$SALIDA" \
+  "${con_musica[@]}" "${remezclar[@]}"

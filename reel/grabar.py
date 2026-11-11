@@ -3,6 +3,12 @@
     python grabar.py <carpeta-voz> --parte 1-lima --destino ../.runtime/reels/1-lima
         → <destino>/reel.mp4, <destino>/portada.png y <destino>/capturas/*.png
     python grabar.py <carpeta-voz> --parte 1-lima --destino … --cuadros 3 20   # solo PNG, para revisar
+    python grabar.py <carpeta-voz> --parte 1-lima --destino … --musica coro.wav             # voz + música
+    python grabar.py <carpeta-voz> --parte 1-lima --destino … --musica coro.wav --remezclar # solo el audio
+
+Con --musica, la música va bajo la voz con «ducking» (sidechaincompress: ~20 dB bajo la voz mientras se habla y
+sube suave en portada, pausas y créditos); la mezcla se normaliza en dos pasadas a -14 LUFS, pico -1,5 dBTP.
+--remezclar reutiliza los cuadros del reel.mp4 ya grabado y solo rehace el audio.
 
 Inyecta en la página la agenda oficial (site/data/agenda.json), el contorno del Perú
 (site/img/peru.svg, Natural Earth) y los «datos» del guion. Necesita Playwright con Chromium y ffmpeg.
@@ -22,9 +28,10 @@ from playwright.sync_api import sync_playwright
 
 AQUI = Path(__file__).resolve().parent
 SITE = AQUI.parent / "site"
-# instantes de las capturas de evidencia: portada, gancho, vuelo, Lima (11 y 12), norte y créditos
+# instantes de las capturas de evidencia: portada, gancho, vuelo, Lima (11, traslado corto y 12), norte y créditos
 CAPTURAS = {"portada": 0.2, "gancho": "gancho+2.2", "vuelo": "vuelo+3.0", "aterrizaje": "vuelo-0.6",
-            "lima-11": "noche-11-0.8", "lima-12": "tarde-12-0.8", "norte": "norte-0.6", "creditos": "fin-0.8"}
+            "lima-11": "noche-11-0.8", "traslado-catedral-plaza": "manana-12-3.0", "lima-12": "tarde-12-0.8",
+            "norte": "norte-0.6", "creditos": "fin-0.8"}
 
 
 def instante(clave, tiempos: dict) -> float:
@@ -37,6 +44,40 @@ def instante(clave, tiempos: dict) -> float:
     return tr["t0"] + float(valor) if signo == "+" else tr["t1"] - float(valor)
 
 
+MUSICA_BASE_DB = -8  # música sin voz, respecto a su máster (-16 LUFS): ~13 dB bajo la voz en portada y pausas
+LOUDNORM = "loudnorm=I=-14:TP=-1.5:LRA=11"
+
+
+def mezclar(voz: Path, musica: Path | None, duracion: float, salida: Path) -> dict:
+    """Voz (+ música con ducking) → WAV estéreo 48 kHz normalizado en dos pasadas. Devuelve la medida final."""
+    if musica:
+        grafo = (
+            "[0:a]aresample=48000,pan=stereo|c0=c0|c1=c0,asplit=2[voz][clave];"
+            f"[1:a]aresample=48000,atrim=0:{duracion:.3f},asetpts=N/SR/TB,"
+            f"afade=t=in:d=1.2,afade=t=out:st={max(duracion - 2.5, 0):.3f}:d=2.5,volume={MUSICA_BASE_DB}dB[mus];"
+            # mientras se habla la música baja ~20 dB respecto a la voz (medido); suelta lenta para que no bombee
+            "[mus][clave]sidechaincompress=threshold=0.08:ratio=2:attack=30:release=700:knee=6[bajo];"
+            "[voz][bajo]amix=inputs=2:duration=first:normalize=0[mezcla]"
+        )
+        entradas = ["-i", str(voz), "-i", str(musica)]
+    else:
+        grafo = "[0:a]aresample=48000,pan=stereo|c0=c0|c1=c0[mezcla]"
+        entradas = ["-i", str(voz)]
+    medir = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", *entradas, "-filter_complex",
+         f"{grafo};[mezcla]{LOUDNORM}:print_format=json[o]", "-map", "[o]", "-f", "null", "-"],
+        capture_output=True, text=True, check=True).stderr
+    m = json.loads(medir[medir.rindex("{"):medir.rindex("}") + 1])
+    final = (f"{LOUDNORM}:linear=true:measured_I={m['input_i']}:measured_TP={m['input_tp']}"
+             f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}"
+             ":print_format=json")
+    out = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-y", *entradas, "-filter_complex",
+         f"{grafo};[mezcla]{final},aresample=48000[o]", "-map", "[o]", "-c:a", "pcm_s24le", str(salida)],
+        capture_output=True, text=True, check=True).stderr
+    return json.loads(out[out.rindex("{"):out.rindex("}") + 1])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("carpeta", type=Path, help="carpeta con narracion.wav y tiempos.json")
@@ -44,6 +85,8 @@ def main() -> None:
     ap.add_argument("--destino", type=Path, required=True)
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--cuadros", type=float, nargs="+", help="segundos a exportar como PNG (sin vídeo)")
+    ap.add_argument("--musica", type=Path, help="WAV de música de fondo (CC0 o propia) para mezclar bajo la voz")
+    ap.add_argument("--remezclar", action="store_true", help="solo rehacer el audio del reel.mp4 existente")
     a = ap.parse_args()
 
     carpeta, destino = a.carpeta.resolve(), a.destino.resolve()
@@ -59,6 +102,24 @@ def main() -> None:
     tiempos["meta"] = {k: guion.get(k) for k in ("titulo", "parte", "tramo", "fechas", "foto_portada")}
     datos = {t["id"]: t.get("datos", []) for t in guion["trozos"]}
     duracion = tiempos["duracion"]
+    musica = a.musica.resolve() if a.musica else None
+    if musica and not musica.exists():
+        sys.exit(f"no existe la música {musica}")
+    mp4 = destino / "reel.mp4"
+    audio = destino / "mezcla.wav"
+    if not a.cuadros:
+        medida = mezclar(carpeta / "narracion.wav", musica, duracion, audio)
+        print(f"Audio: {'voz + música' if musica else 'voz'} · {medida['output_i']} LUFS · pico {medida['output_tp']} dBTP")
+    if a.remezclar:
+        previo = destino / "reel.sin-remezcla.mp4"
+        mp4.replace(previo)
+        subprocess.run(
+            ["ffmpeg", "-loglevel", "error", "-y", "-i", str(previo), "-i", str(audio), "-map", "0:v", "-map", "1:a",
+             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", "-shortest",
+             str(mp4)], check=True)
+        previo.unlink()
+        print(f"Listo (solo audio): {mp4}")
+        return
 
     with sync_playwright() as p:
         nav = p.chromium.launch(args=["--mute-audio", "--allow-file-access-from-files"])
@@ -92,13 +153,12 @@ def main() -> None:
         for nombre, clave in CAPTURAS.items():
             foto(instante(clave, tiempos), destino / "capturas" / f"{nombre}.png")
 
-        mp4 = destino / "reel.mp4"
         ffmpeg = subprocess.Popen(
             ["ffmpeg", "-loglevel", "error", "-y",
              "-f", "image2pipe", "-framerate", str(a.fps), "-c:v", "png", "-i", "-",
-             "-i", str(carpeta / "narracion.wav"),
+             "-i", str(audio),
              "-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-             "-r", str(a.fps), "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+             "-r", str(a.fps), "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
              "-movflags", "+faststart", "-shortest", str(mp4)],
             stdin=subprocess.PIPE)
         total = int(duracion * a.fps) + 1
