@@ -65,7 +65,7 @@ en la franja central (y ≈ 1300 px), lejos de los botones de Instagram/TikTok.
 
 ## Créditos y licencia
 
-Fotos de Wikimedia Commons (autor y licencia en `site/data/agenda.json`, recortadas); como varias son
+Fotos de Wikimedia Commons (autor y licencia en `site/data/agenda.json`, recortadas; sin crédito sobreimpreso en las escenas: van en los créditos finales y en el comentario fijado); como varias son
 CC BY-SA 4.0, **el vídeo se publica bajo CC BY-SA 4.0**. Mapa: Natural Earth (dominio público).
 Agenda: programa oficial de la Santa Sede. Música: coro original generado para este vídeo (sin letra ni
 melodías existentes; `../.runtime/reels/musica/coro.wav`, fuera de git), mezclado bajo la voz con

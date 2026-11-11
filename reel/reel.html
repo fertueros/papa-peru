@@ -91,7 +91,6 @@ const diaCorto = iso => { const f = fecha(iso); return `${DIA[f.ds]} ${f.dd} nov
 const parada = id => A.paradas.find(p => p.id === id);
 const tramo = id => A.tramos.find(t => t.id === id);
 const consultada = () => { const f = A.fuente.consultada.slice(0, 10).split('-'); return `${+f[2]}-nov-${f[0]}`; };
-const credito = id => { const f = A.fotos[id]; return f ? `Foto: ${f.autor} · ${f.licencia} · recortada` : ''; };
 
 /* Proyección de site/img/peru.svg: x=(lon+81.6)*20*cos(9.5°), y=(0.2-lat)*20 */
 const KX = 20 * Math.cos(9.5 * Math.PI / 180);
@@ -217,7 +216,7 @@ function cargarFotos(ids) {
 }
 function foto(id, x, y, w, h, s, o = {}) {
   const im = FOTOS[id]; if (!im) return;
-  const { zoom = .06, r = 28, pie = true } = o;
+  const { zoom = .06, r = 28, pie = false } = o;
   ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.clip();
   const k = Math.max(w / im.width, h / im.height) * (1 + zoom * clamp(s / 6)); // acercamiento lento
   const iw = im.width * k, ih = im.height * k;
@@ -228,7 +227,6 @@ function foto(id, x, y, w, h, s, o = {}) {
   }
   ctx.restore();
   rr(x, y, w, h, r, null, 'rgba(255,255,255,.85)', 4);
-  if (pie) txt(credito(id), x + w - 22, y + h - 26, 26, C.blanco, { al: 'right', w: 500, max: w - 40 });
 }
 
 /* ---------- rótulos fijos de veracidad ---------- */
@@ -377,7 +375,6 @@ const ESCENAS = {
       txt(`${hora(t.salida)} → ${hora(t.llegada)} · ${t.origen} → ${t.destino}`, 540, 432, 46, C.oro, { w: 800, max: 700 });
     });
     if (tr.foto) alpha(ap(s, F[1] - .2, .4), () => foto(tr.foto, 600, 640, 390, 219, s - F[1], { pie: false }));
-    if (tr.foto) txt(credito(tr.foto), 990, 885, 24, C.blanco, { al: 'right', w: 500, sombra: true, a: ap(s, F[1] - .2, .4) });
     alpha(ap(s, F[1] + .3, .4), () => etiqueta('Parte 2/3 · el norte', 330, 1050, 40, C.bg, C.oro, null, { w: 800 }));
     rotuloSimulacion(1);
   },
@@ -458,7 +455,6 @@ function portada() {
   txt(`desde ${ba.origen}`, sur[0] - 10, sur[1] - 34, 28, C.mute, { al: 'right', sombra: true });
   Object.assign(MAPA, viejo);
   txt(SIMULACION, 540, 1530, 29, C.oro, { w: 700, max: 960 });
-  txt(credito(id), 540, 1580, 26, C.mute, { w: 500, max: 960 });
 }
 
 const RESALTA = /\d|XIV|Callao|Lima|Chiclayo|Palacio|Catedral|Monumental|Nunciatura|Teatro|Plaza|Mayor|Base|Aérea|prevista|cambiar/;
