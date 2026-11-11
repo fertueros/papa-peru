@@ -229,8 +229,9 @@ describe("R8 · todos los créditos en el comentario fijado de texto-linkedin.md
       // cada foto usada en el guion aparece con su autor
       const guion = JSON.parse(leer(`../partes/${nombre}/guion.json`));
       const agenda = JSON.parse(leer("../../site/data/agenda.json"));
-      for (const id of new Set([guion.foto_portada, ...guion.trozos.map((t) => t.foto)].filter(Boolean)))
-        assert.ok(texto.includes(agenda.fotos[id].autor), `falta el crédito de la foto ${id}`);
+      const propias = JSON.parse(leer("../fotos.json")).fotos; // fotos del reel que no están en la web (R12)
+      for (const id of new Set([guion.foto_portada, ...guion.trozos.flatMap((t) => t.fotos ?? [])].filter(Boolean)))
+        assert.ok(texto.includes((agenda.fotos[id] ?? propias[id]).autor), `falta el crédito de la foto ${id}`);
     });
   }
   test("caso negativo: sin OpenStreetMap ni licencia del vídeo, o fuera del comentario fijado", () => {

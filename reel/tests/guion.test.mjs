@@ -8,6 +8,9 @@ import { describe, test } from "node:test";
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), "utf8");
 const agenda = JSON.parse(leer("../../site/data/agenda.json"));
 const html = leer("../reel.html");
+// fotos de la web (site/data/agenda.json) y las propias del reel (reel/fotos.json, p. ej. el Estadio Monumental)
+const fotosReel = JSON.parse(leer("../fotos.json"));
+export const fotoDe = (id) => agenda.fotos[id] ?? fotosReel.fotos[id];
 const partes = readdirSync(new URL("../partes/", import.meta.url)).filter((p) =>
   existsSync(new URL(`../partes/${p}/guion.json`, import.meta.url)),
 );
@@ -115,7 +118,24 @@ export const diasDichos = (voz) =>
 
 // nombres propios que no son lugares, y palabras que solo van en mayúscula por empezar frase
 const NO_LUGAR = new Set(["León", "Hora Media"]);
-const INICIO = new Set(["A", "Y", "El", "La", "Los", "Las", "En", "Este", "Esta", "Ese", "Es", "Así", "Qué", "Hoy"]);
+const INICIO = new Set([
+  "A",
+  "Y",
+  "El",
+  "La",
+  "Los",
+  "Las",
+  "En",
+  "Este",
+  "Esta",
+  "Ese",
+  "Es",
+  "Así",
+  "Qué",
+  "Hoy",
+  "Vas",
+  "Cuéntame",
+]);
 /** Grupos de palabras en mayúscula de la voz («Teatro Municipal», «Catedral de Lima»). */
 export function nombresPropios(voz) {
   const re = /\p{Lu}\p{L}*(?:\s+(?:(?:de|del|de la|de los)\s+)?\p{Lu}\p{L}*)*/gu;
@@ -204,7 +224,8 @@ for (const nombre of partes) {
           assert.ok(p.lat !== null, `${id}: solo lugares de la agenda con coordenadas`);
         }
         for (const id of trozo.mapa?.tramos ?? []) assert.ok(tramo(id), `tramo ${id}`);
-        if (trozo.foto) assert.ok(agenda.fotos[trozo.foto], `foto ${trozo.foto}`);
+        for (const id of (trozo.fotos ?? []).filter(Boolean)) assert.ok(fotoDe(id), `foto ${id}`);
+        assert.equal(trozo.foto, undefined, "una foto por frase («fotos»), no una por escena (R12)");
         assert.match(html, new RegExp(`\\n {2}${trozo.escena}\\(`), `escena ${trozo.escena}`);
       });
     }
@@ -212,9 +233,9 @@ for (const nombre of partes) {
 }
 
 describe("R2 · los rótulos de veracidad están en reel.html", () => {
-  test("simulación, traslado aproximado y sujeto a cambios", () => {
+  test("simulación y sujeto a cambios (sin el rótulo de traslado: R2 modificado, Fernando 11-nov)", () => {
     assert.ok(html.includes("Simulación del trayecto previsto · no es seguimiento en vivo"));
-    assert.ok(html.includes("traslado · trayecto aproximado, no es la ruta real"));
+    assert.ok(!html.includes("traslado · trayecto aproximado, no es la ruta real"));
     assert.ok(html.includes("sujeto a cambios"));
   });
 });
@@ -275,5 +296,66 @@ describe("R1 · el control detecta alteraciones (casos negativos)", () => {
     t.texto = t.texto.replace("Gran Teatro Nacional", "Teatro Municipal");
     t.voz = t.voz.replace("Gran Teatro Nacional", "Teatro Municipal");
     rojo(erroresDe(t), /«Teatro Municipal» no es el lugar de encuentro-autoridades-gtn/);
+  });
+});
+
+/* R12 (Fernando 11-nov: «dices estadio monumental pero esa foto no es del estadio monumental»): en cada frase la foto
+   visible es la del lugar que nombra esa frase, o ninguna (Gran Teatro Nacional: no hay foto libre buena).
+   Se evalúa la misma función de reel.html que decide qué foto se ve (fotosVisibles), a mitad de cada frase. */
+const QUE_MUESTRA = fotosReel.nombran; // foto → lugares que muestra (la Catedral y la Plaza Mayor son la misma plaza)
+const fuenteDe = (nombre) =>
+  html.match(new RegExp(`\\n(?:const ${nombre} = .*|function ${nombre}\\([\\s\\S]*?\\n\\})`))[0];
+const fotosVisibles = new Function(
+  `${["clamp", "out", "ap", "fotosVisibles"].map(fuenteDe).join("\n")}\nreturn fotosVisibles;`,
+)();
+export function fotosQueNoCuadran(trozo) {
+  const frases = trozo.texto.split(/(?<=[.!?])\s+(?=[¿¡A-ZÁÉÍÓÚÑ])/);
+  const err = [];
+  if (trozo.fotos && trozo.fotos.length !== frases.length)
+    err.push(`${trozo.fotos.length} fotos para ${frases.length} frases`);
+  const F = frases.map((_, j) => j * 5); // frases de 5 s
+  frases.forEach((frase, j) => {
+    for (const s of [F[j] + 1.0, F[j] + 2.5, F[j] + 4.5]) {
+      for (const { id, a } of fotosVisibles(trozo, s, F, frases.length * 5)) {
+        if (a < 0.5) continue; // fundido del cambio de frase
+        const lugares = QUE_MUESTRA[id];
+        if (!lugares) err.push(`frase ${j + 1}: la foto ${id} no declara qué lugar muestra`);
+        else if (!lugares.some((l) => frase.includes(l)))
+          err.push(`frase ${j + 1} («${frase.slice(0, 40)}…»): se ve ${id} (${lugares.join(" / ")}) y no se nombra`);
+      }
+    }
+  });
+  return [...new Set(err)];
+}
+for (const nombre of partes) {
+  const guion = JSON.parse(leer(`../partes/${nombre}/guion.json`));
+  describe(`R12 · ${nombre}: la foto de cada frase es la del lugar que se nombra`, () => {
+    for (const trozo of guion.trozos) test(`${trozo.id}`, () => assert.deepEqual(fotosQueNoCuadran(trozo), []));
+  });
+}
+describe("R12 · el control detecta fotos que no cuadran (casos negativos)", () => {
+  const guion = JSON.parse(leer("../partes/1-lima/guion.json"));
+  const trozo = (id) => structuredClone(guion.trozos.find((t) => t.id === id));
+  test("tarde-12 con la foto de la Nunciatura toda la escena (el fallo que vio Fernando)", () => {
+    const t = trozo("tarde-12");
+    t.fotos = ["lima-nunciatura", "lima-nunciatura"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /frase 1 .*lima-nunciatura/);
+  });
+  test("tarde-12 con las fotos cruzadas", () => {
+    const t = trozo("tarde-12");
+    t.fotos.reverse();
+    assert.equal(fotosQueNoCuadran(t).length, 2);
+  });
+  test("noche-11 con la foto del Palacio también en el Gran Teatro Nacional", () => {
+    const t = trozo("noche-11");
+    t.fotos = ["lima-palacio", "lima-palacio"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /frase 2 .*lima-palacio/);
+  });
+  test("una foto sin lugar declarado, o menos fotos que frases", () => {
+    const t = trozo("noche-11");
+    t.fotos = ["lima-ciudad", null];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /no declara qué lugar/);
+    t.fotos = ["lima-palacio"];
+    assert.match(fotosQueNoCuadran(t).join("\n"), /1 fotos para 2 frases/);
   });
 });

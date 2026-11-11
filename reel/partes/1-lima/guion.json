@@ -6,7 +6,7 @@
   "foto_portada": "lima-catedral",
   "entrada": 0.75,
   "cola": 3.0,
-  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda) y, con DP-002, los recorridos anunciados de recorridos.json que dibuja en vista de calles.",
+  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda) 'fotos' es la foto de cada frase (null = sin foto): siempre la del lugar que nombra esa frase (R12). Y, con DP-002, los recorridos anunciados de recorridos.json que dibuja en vista de calles.",
   "trozos": [
     {
       "id": "gancho",
@@ -39,7 +39,7 @@
         "paradas": ["llegada-callao", "bienvenida-palacio-gobierno", "encuentro-autoridades-gtn"],
         "recorridos": ["11-cerrado", "11-papamovil"]
       },
-      "foto": "lima-palacio",
+      "fotos": ["lima-palacio", null],
       "voz": "A las seis y cuarto, ceremonia de bienvenida en el Palacio de Gobierno. A las siete y cuarenta y cinco, encuentro con las autoridades en el Gran Teatro Nacional.",
       "texto": "A las 18:15, ceremonia de bienvenida en el Palacio de Gobierno. A las 19:45, encuentro con las autoridades en el Gran Teatro Nacional.",
       "datos": [
@@ -54,7 +54,7 @@
         "paradas": ["hora-media-catedral-lima", "encuentro-plaza-catedral-lima"],
         "recorridos": ["12-papamovil"]
       },
-      "foto": "lima-catedral",
+      "fotos": ["lima-catedral", "lima-catedral"],
       "voz": "El jueves doce, a las diez y veinte, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las once y media, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",
       "texto": "El jueves 12, a las 10:20, la Hora Media con obispos y sacerdotes en la Catedral de Lima. A las 11:30, un encuentro en la Plaza Mayor sobre los desafíos y las esperanzas del pueblo peruano.",
       "datos": [
@@ -66,7 +66,7 @@
       "id": "tarde-12",
       "escena": "lima",
       "mapa": { "paradas": ["encuentro-plaza-catedral-lima", "vigilia-jovenes-monumental", "cena-obispos-nunciatura"] },
-      "foto": "lima-nunciatura",
+      "fotos": ["lima-monumental", "lima-nunciatura"],
       "voz": "A las seis de la tarde, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las ocho de la noche, cena con los obispos en la Nunciatura Apostólica.",
       "texto": "A las 18:00, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las 20:00, cena con los obispos en la Nunciatura Apostólica.",
       "datos": [
@@ -78,7 +78,7 @@
       "id": "norte",
       "escena": "norte",
       "mapa": { "tramos": ["lima-chiclayo"] },
-      "foto": "chiclayo-catedral",
+      "fotos": ["chiclayo-catedral", null],
       "voz": "El viernes trece, a las siete y cuarenta de la mañana, despega hacia Chiclayo, la ciudad donde fue obispo. Ese viaje al norte será la parte dos.",
       "texto": "El viernes 13, a las 07:40, despega hacia Chiclayo, la ciudad donde fue obispo. Ese viaje al norte será la parte 2.",
       "datos": [
@@ -88,8 +88,8 @@
     {
       "id": "cierre",
       "escena": "cierre",
-      "voz": "Es la agenda prevista y puede cambiar. ¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?",
-      "texto": "Es la agenda prevista y puede cambiar. ¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?",
+      "voz": "Es la agenda prevista y puede cambiar. ¿Vas a salir a verlo? Cuéntame desde qué punto del recorrido lo esperarás.",
+      "texto": "Es la agenda prevista y puede cambiar. ¿Vas a salir a verlo? Cuéntame desde qué punto del recorrido lo esperarás.",
       "datos": []
     }
   ]

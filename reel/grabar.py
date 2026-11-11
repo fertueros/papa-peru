@@ -34,7 +34,7 @@ SITE = AQUI.parent / "site"
 CAPTURAS = {"portada": 0.2, "gancho": "gancho+2.2", "vuelo": "vuelo+3.0", "aterrizaje": "vuelo-0.6",
             "recorrido-11-cerrado": "noche-11+1.6", "recorrido-11-papamovil": "noche-11+4.3",
             "lima-11": "noche-11-0.8", "recorrido-12-papamovil": "manana-12+4.3",
-            "traslado-catedral-plaza": "manana-12-3.0", "lima-12": "tarde-12-0.8",
+            "traslado-catedral-plaza": "manana-12-3.0", "foto-monumental": "tarde-12+2.5", "lima-12": "tarde-12-0.8",
             "norte": "norte-0.6", "cierre": "fin-0.3"}
 
 
@@ -99,10 +99,10 @@ def main() -> None:
     guion = json.loads((AQUI / "partes" / a.parte / "guion.json").read_text(encoding="utf-8"))
     agenda = json.loads((SITE / "data" / "agenda.json").read_text(encoding="utf-8"))
     peru = re.search(r'\bd="([^"]+)"', (SITE / "img" / "peru.svg").read_text(encoding="utf-8")).group(1)
-    # mapa/foto del guion actual (por si se cambió después de grabar la voz)
+    # mapa/fotos (una por frase, R12) del guion actual (por si se cambió después de grabar la voz)
     for tr in tiempos["trozos"]:
         g = next(x for x in guion["trozos"] if x["id"] == tr["id"])
-        tr["mapa"], tr["foto"] = g.get("mapa", {}), g.get("foto")
+        tr["mapa"], tr["fotos"] = g.get("mapa", {}), g.get("fotos", [])
     tiempos["meta"] = {k: guion.get(k) for k in ("titulo", "parte", "tramo", "fechas", "foto_portada")}
     datos = {t["id"]: t.get("datos", []) for t in guion["trozos"]}
     fichero_rec = AQUI / "partes" / a.parte / "recorridos.json"
@@ -145,7 +145,7 @@ def main() -> None:
         pagina.goto((AQUI / "reel.html").as_uri())
         pagina.evaluate("document.fonts.ready")
         pagina.evaluate("window.reelListo")
-        faltan = pagina.evaluate("Object.keys(window.TIEMPOS.trozos.reduce((o,t)=>(t.foto&&(o[t.foto]=1),o),{}))")
+        faltan = pagina.evaluate("[...new Set(window.TIEMPOS.trozos.flatMap(t => t.fotos ?? []).filter(Boolean))]")
         lienzo = pagina.locator("#c")
 
         def foto(t: float, ruta: Path) -> None:
