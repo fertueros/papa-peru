@@ -1,0 +1,17 @@
+{
+  "actualizado": "2026-11-13T10:45:00-05:00",
+  "avion": null,
+  "detecciones": [
+    {
+      "parada": "misa-pampas-pimentel",
+      "que": "empezo",
+      "hora_hecho": "2026-11-13T10:42:00-05:00",
+      "retraso_min": null,
+      "fuente": "Vatican News",
+      "url": "https://www.vaticannews.va/es.html",
+      "frase": "Comenzó la santa misa en las Pampas de Pimentel",
+      "hora_deteccion": "2026-11-13T10:45:00-05:00"
+    }
+  ],
+  "agenda_cambios": []
+}
