@@ -6,7 +6,7 @@
   "foto_portada": "lima-catedral",
   "entrada": 0.75,
   "cola": 3.0,
-  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale: reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda) 'fotos' es la foto de cada frase (null = sin foto): siempre la del lugar que nombra esa frase (R12). Y, con DP-002, los recorridos anunciados de recorridos.json que dibuja en vista de calles.",
+  "nota": "'voz' es lo que se dice (cifras en palabras); 'texto' es el subtítulo, con las mismas frases. 'datos' declara cada hora y lugar que dice el texto y de qué parada o tramo de site/data/agenda.json sale (con las correcciones de correcciones.json, R13: la vigilia es en el Estadio Nacional): reel/tests/guion.test.mjs lo comprueba. 'mapa' son las paradas o tramos que dibuja la escena (siempre leídos de la agenda) 'fotos' es la foto de cada frase (null = sin foto): siempre la del lugar que nombra esa frase (R12). Y, con DP-002, los recorridos anunciados de recorridos.json que dibuja en vista de calles.",
   "trozos": [
     {
       "id": "gancho",
@@ -66,11 +66,11 @@
       "id": "tarde-12",
       "escena": "lima",
       "mapa": { "paradas": ["encuentro-plaza-catedral-lima", "vigilia-jovenes-monumental", "cena-obispos-nunciatura"] },
-      "fotos": ["lima-monumental", "lima-nunciatura"],
-      "voz": "A las seis de la tarde, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las ocho de la noche, cena con los obispos en la Nunciatura Apostólica.",
-      "texto": "A las 18:00, vigilia de oración con los jóvenes en el Estadio Monumental. Y a las 20:00, cena con los obispos en la Nunciatura Apostólica.",
+      "fotos": ["lima-estadio-nacional", "lima-nunciatura"],
+      "voz": "A las seis de la tarde, vigilia de oración con los jóvenes en el Estadio Nacional. Y a las ocho de la noche, cena con los obispos en la Nunciatura Apostólica.",
+      "texto": "A las 18:00, vigilia de oración con los jóvenes en el Estadio Nacional. Y a las 20:00, cena con los obispos en la Nunciatura Apostólica.",
       "datos": [
-        { "parada": "vigilia-jovenes-monumental", "hora": "18:00", "lugar": "Estadio Monumental" },
+        { "parada": "vigilia-jovenes-monumental", "hora": "18:00", "lugar": "Estadio Nacional" },
         { "parada": "cena-obispos-nunciatura", "hora": "20:00", "lugar": "Nunciatura Apostólica" }
       ]
     },

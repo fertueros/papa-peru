@@ -12,11 +12,13 @@
 <body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script src="recorridos.js"></script>
+<script src="correcciones.js"></script>
 <script>
 /* Reel vertical de una parte del itinerario. Cada escena es una función pura de
    (s = segundos desde que empieza, d = duración, F = inicio de cada frase, tr = trozo):
    grabar.py llama a reelIr(t) cuadro a cuadro y el resultado siempre es el mismo.
-   Horas, lugares y coordenadas se leen SOLO de window.AGENDA (site/data/agenda.json).
+   Horas, lugares y coordenadas se leen SOLO de window.AGENDA (site/data/agenda.json) con las correcciones
+   de window.CORRECCIONES (reel/partes/<n>/correcciones.json, R13: la corrección manda).
    Nunca se dibuja una ubicación real del papa: solo el lugar público de cada acto y, en los reels (DP-002),
    los recorridos ANUNCIADOS de window.RECORRIDOS (reel/partes/<n>/recorridos.json) vía Recorridos.plan(). */
 const W = 1080, H = 1920, PORTADA = 0.6; // 18 cuadros a 30 fps de portada fija
@@ -107,10 +109,10 @@ function camLerp(a, b, u) {
   const t = Math.abs(b.k - a.k) < 1e-6 ? e : clamp(m);
   return { cx: lerp(a.cx, b.cx, t), cy: lerp(a.cy, b.cy, t), k };
 }
-function encuadre(puntos, margen = .78, caja = MAPA) {
+function encuadre(puntos, margen = .78, caja = MAPA, kFijo = null) {
   const us = puntos.map(p => p[0]), vs = puntos.map(p => p[1]);
   const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs);
-  const k = Math.min(caja.w * margen / Math.max(u1 - u0, .01), caja.h * margen / Math.max(v1 - v0, .01));
+  const k = kFijo ?? Math.min(caja.w * margen / Math.max(u1 - u0, .01), caja.h * margen / Math.max(v1 - v0, .01));
   // la caja puede ser solo una parte del mapa: se desplaza el centro para que los puntos caigan en ella
   const dx = (caja.x + caja.w / 2) - (MAPA.x + MAPA.w / 2), dy = (caja.y + caja.h / 2) - (MAPA.y + MAPA.h / 2);
   return { cx: (u0 + u1) / 2 - dx / k, cy: (v0 + v1) / 2 - dy / k, k };
@@ -122,8 +124,10 @@ function vistaLima(tr) {
   const pts = (tr.mapa?.paradas ?? []).map(id => parada(id)).map(p => P(p.lon, p.lat));
   const tramos = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])).filter(x => x > 0);
   if (!tramos.length || Math.min(...tramos) * VISTAS.lima.k >= TRASLADO_MIN) return VISTAS.lima;
-  const v = encuadre(pts, .84, LIMA_PUNTOS);
-  return { ...v, k: Math.max(v.k, TRASLADO_MIN * 2.5 / Math.min(...tramos)) };
+  // más cerca, pero sin que ningún lugar salga de la franja bajo la foto (R13: Estadio Nacional → Nunciatura, ~0,8 km);
+  // el centro se recalcula con el k final (si no, el desplazamiento hacia la franja deja los puntos fuera del mapa)
+  const k = Math.min(Math.max(encuadre(pts, .84, LIMA_PUNTOS).k, TRASLADO_MIN * 2.5 / Math.min(...tramos)), encuadre(pts, .96, LIMA_PUNTOS).k);
+  return encuadre(pts, .84, LIMA_PUNTOS, k);
 }
 const LIMA_PUNTOS = { x: 60, y: 870, w: 960, h: 300 }; // franja del mapa de Lima bajo la foto (hasta el borde del mapa)
 function prepararVistas() {
@@ -571,7 +575,8 @@ const ESCENAS = {
     });
     const actos = ids.map(parada).map(p => ({ lat: p.lat, lon: p.lon }));
     let colocados;
-    if (pl) colocados = dibujarRecorridos(pl, s, ag.rec, ap(s, .3, .4), actos, nombres, lineas);
+    // el rótulo DP-002 a opacidad plena desde el primer cuadro: nunca por detrás de la geometría (reel/tests/rotulo.test.mjs)
+    if (pl) colocados = dibujarRecorridos(pl, s, ag.rec, 1, actos, nombres, lineas);
     else { // sin calles: el mismo colocador, con los traslados y los puntos como obstáculos, bajo la foto
       const ocupados = [], zona = { x: MAPA.x + 10, y: 830, w: MAPA.w - 20, h: MAPA.y + MAPA.h - 840 };
       for (const [a, b] of lineas) muestrear([aPantalla(enUV(a)), aPantalla(enUV(b))], 12, ocupados);
@@ -686,10 +691,10 @@ function portada() {
   txt(SIMULACION, 540, 1530, 29, C.oro, { w: 700, max: 960 });
 }
 
-const RESALTA = /\d|XIV|Callao|Lima|Chiclayo|Palacio|Catedral|Monumental|Nunciatura|Teatro|Plaza|Mayor|Base|Aérea|prevista|cambiar/;
+const RESALTA = /\d|XIV|Callao|Lima|Chiclayo|Palacio|Catedral|Estadio|Nacional|Nunciatura|Teatro|Plaza|Mayor|Base|Aérea|prevista|cambiar/;
 let T = null, GOLPES = [];
 function preparar(tiempos, agenda, peru) {
-  T = tiempos; A = agenda; GOLPES = []; REC = window.RECORRIDOS ?? null;
+  T = tiempos; A = Correcciones.aplicar(agenda, window.CORRECCIONES ?? null); GOLPES = []; REC = window.RECORRIDOS ?? null;
   if (peru) PERU = new Path2D(peru);
   for (const tr of T.trozos) for (const f of tr.frases) for (const [g, a, b] of f.golpes) GOLPES.push({ g, a, b });
   prepararVistas();

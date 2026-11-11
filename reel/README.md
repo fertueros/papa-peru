@@ -15,7 +15,7 @@ reel/hacer_reel.sh 1-lima --solo-video             # reusar la voz ya hecha
 
 Salida (FUERA de git) en `<meta>/.runtime/reels/<parte>/`: `reel.mp4` (H.264 + AAC, 1080×1920,
 30 fps), `portada.png` (= los primeros 0,6 s del vídeo, para subirla como miniatura en LinkedIn
-desde escritorio), `capturas/` (portada, gancho, vuelo, aterrizaje, recorridos del 11 y 12, Lima, foto del Monumental, norte, cierre) y `voz/`.
+desde escritorio), `capturas/` (portada, gancho, vuelo, aterrizaje, recorridos del 11 y 12, Lima, entrada a los recorridos del 11 y 12, vigilia en el Estadio Nacional, norte, cierre) y `voz/`.
 
 Las partes 2 y 3 se hacen escribiendo `partes/2-norte/guion.json` y `partes/3-cusco/guion.json`
 con las mismas escenas (`gancho`, `vuelo`, `lima`, `norte`, `cierre`) o añadiendo una a `reel.html`.
@@ -50,7 +50,7 @@ con las mismas escenas (`gancho`, `vuelo`, `lima`, `norte`, `cierre`) o añadien
 - **Fotos por frase (R12)**: `fotos` del guion lleva una foto por frase (`null` = sin foto) y siempre es la del lugar
   que nombra esa frase; cambia justo cuando la voz pasa de un acto al siguiente (`fotosVisibles()` en `reel.html`).
   `reel/fotos.json` declara qué lugar muestra cada foto (`nombran`) y los créditos de las fotos propias del reel
-  (`reel/fotos/`, p. ej. el Estadio Monumental; las demás salen de `site/data/agenda.json`). El Gran Teatro Nacional va
+  (`reel/fotos/`, p. ej. el Estadio Nacional del Perú; las demás salen de `site/data/agenda.json`). El Gran Teatro Nacional va
   sin foto (no hay una libre buena). Test: `reel/tests/guion.test.mjs` evalúa `fotosVisibles()` a mitad de cada frase.
 - **Rótulos del mapa sin solaparse**: nombres de actos, lugares del anuncio y avenidas pasan por el mismo colocador
   (`colocar()`), que elige el candidato más lejos de lo ya dibujado; un nombre de avenida sin sitio libre (en pleno zoom)

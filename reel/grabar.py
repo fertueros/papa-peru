@@ -10,7 +10,8 @@ Con --musica, la música va bajo la voz con «ducking» (sidechaincompress: ~20 
 sube suave en portada, pausas y en el fundido final); la mezcla se normaliza en dos pasadas a -14 LUFS, pico -1,5 dBTP.
 --remezclar reutiliza los cuadros del reel.mp4 ya grabado y solo rehace el audio.
 
-Inyecta en la página la agenda oficial (site/data/agenda.json), el contorno del Perú
+Inyecta en la página la agenda oficial (site/data/agenda.json) y sus correcciones (partes/<parte>/correcciones.json,
+R13: la corrección manda), el contorno del Perú
 (site/img/peru.svg, Natural Earth), los «datos» del guion y, si existe, partes/<parte>/recorridos.json
 (recorridos anunciados con geometría de OpenStreetMap ya guardada: el render no consulta OSM). Necesita Playwright con Chromium y ffmpeg.
 """
@@ -34,7 +35,8 @@ SITE = AQUI.parent / "site"
 CAPTURAS = {"portada": 0.2, "gancho": "gancho+2.2", "vuelo": "vuelo+3.0", "aterrizaje": "vuelo-0.6",
             "recorrido-11-cerrado": "noche-11+1.6", "recorrido-11-papamovil": "noche-11+4.3",
             "lima-11": "noche-11-0.8", "recorrido-12-papamovil": "manana-12+4.3",
-            "traslado-catedral-plaza": "manana-12-3.0", "foto-monumental": "tarde-12+2.5", "lima-12": "tarde-12-0.8",
+            "traslado-catedral-plaza": "manana-12-3.0", "vigilia-estadio-nacional": "tarde-12+2.5", "entrada-recorrido-11": "noche-11+0.1",
+            "entrada-recorrido-12": "manana-12+0.1", "lima-12": "tarde-12-0.8",
             "norte": "norte-0.6", "cierre": "fin-0.3"}
 
 
@@ -107,6 +109,9 @@ def main() -> None:
     datos = {t["id"]: t.get("datos", []) for t in guion["trozos"]}
     fichero_rec = AQUI / "partes" / a.parte / "recorridos.json"
     recorridos = json.loads(fichero_rec.read_text(encoding="utf-8")) if fichero_rec.exists() else None
+    # R13: correcciones del reel sobre la agenda (con fuente); reel.html las aplica con Correcciones.aplicar()
+    fichero_corr = AQUI / "partes" / a.parte / "correcciones.json"
+    correcciones = json.loads(fichero_corr.read_text(encoding="utf-8")) if fichero_corr.exists() else None
     # sin pantalla de créditos (R8): la cola tras la última frase es la del guion actual; si la voz se grabó con
     # una cola más larga, se recorta aquí (vídeo y voz) sin regenerar la voz
     ultima = tiempos["trozos"][-1]["frases"][-1]["t1"]
@@ -139,6 +144,7 @@ def main() -> None:
             f"window.AGENDA = {json.dumps(agenda, ensure_ascii=False)};"
             f"window.GUION_DATOS = {json.dumps(datos, ensure_ascii=False)};"
             f"window.RECORRIDOS = {json.dumps(recorridos, ensure_ascii=False)};"
+            f"window.CORRECCIONES = {json.dumps(correcciones, ensure_ascii=False)};"
             f"window.PERU_D = {json.dumps(peru)};")
         errores = []
         pagina.on("pageerror", lambda e: errores.append(str(e)))
