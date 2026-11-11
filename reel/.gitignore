@@ -1,0 +1,9 @@
+# Nada de voz, vídeo ni entornos en git (repo público): todo se genera en ../.runtime/reels/.
+salida/
+voces/
+.runtime/
+*.wav
+*.mp3
+*.mp4
+*.png
+__pycache__/

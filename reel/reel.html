@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Reel · León XIV en Perú</title>
+<style>
+  html, body { margin: 0; background: #0A1633; }
+  canvas { display: block; width: 1080px; height: 1920px; }
+  body.vista canvas { width: auto; height: 96vh; margin: 2vh auto; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+/* Reel vertical de una parte del itinerario. Cada escena es una función pura de
+   (s = segundos desde que empieza, d = duración, F = inicio de cada frase, tr = trozo):
+   grabar.py llama a reelIr(t) cuadro a cuadro y el resultado siempre es el mismo.
+   Horas, lugares y coordenadas se leen SOLO de window.AGENDA (site/data/agenda.json).
+   Nunca se dibuja una ubicación real del papa: solo el lugar público de cada acto. */
+const W = 1080, H = 1920, PORTADA = 0.6; // 18 cuadros a 30 fps de portada fija
+// Escudo de León XIV (Sala de Prensa de la Santa Sede, 14-05-2025): azul, plata, rojo y oro.
+// Los tonos exactos no se publican; estos son una interpretación sobria (ver reel/README.md).
+const C = { bg: '#0A1633', bg2: '#13285A', panel: '#12224A', azul: '#2E5AAC', azulClaro: '#8FB3F0',
+            blanco: '#FFFFFF', txt: '#F5F7FC', mute: '#B4BED3', oro: '#F2C230', rojo: '#D91023',
+            tierra: '#1F3A72', mar: '#0C1B3E', costa: '#8FB3F0' };
+const FONT = 'Ubuntu, "Noto Sans", "DejaVu Sans", sans-serif';
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const out = u => 1 - (1 - clamp(u)) ** 3;
+const ease = u => { u = clamp(u); return u < .5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2; };
+const ap = (s, at, dur = .5) => out((s - at) / dur);
+
+function txt(s, x, y, size, color = C.txt, o = {}) {
+  const { w = 700, al = 'center', bl = 'middle', a = 1, max = 0, sc = 1, sombra = false } = o;
+  if (a <= 0 || !s) return;
+  ctx.save();
+  ctx.globalAlpha *= a;
+  let px = size;
+  ctx.font = `${w} ${px}px ${FONT}`;
+  if (max) { while (ctx.measureText(s).width > max && px > 10) { px -= 1; ctx.font = `${w} ${px}px ${FONT}`; } }
+  ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.textAlign = al; ctx.textBaseline = bl;
+  if (sombra) { ctx.lineJoin = 'round'; ctx.lineWidth = px / 6; ctx.strokeStyle = 'rgba(5,10,30,.85)'; ctx.strokeText(s, 0, 0); }
+  ctx.fillStyle = color; ctx.fillText(s, 0, 0);
+  ctx.restore();
+}
+/* Texto en varias líneas dentro de un ancho; devuelve la altura usada. */
+function parrafo(s, x, y, size, color, ancho, o = {}) {
+  const { w = 600, al = 'center', a = 1, lh = 1.25, maxLineas = 3 } = o;
+  ctx.save(); ctx.font = `${w} ${size}px ${FONT}`;
+  const lineas = []; let actual = '';
+  for (const p of s.split(' ')) {
+    const prueba = actual ? actual + ' ' + p : p;
+    if (ctx.measureText(prueba).width > ancho && actual) { lineas.push(actual); actual = p; } else actual = prueba;
+  }
+  if (actual) lineas.push(actual);
+  ctx.restore();
+  const vis = lineas.slice(0, maxLineas);
+  if (lineas.length > maxLineas) vis[maxLineas - 1] += '…';
+  vis.forEach((l, i) => {
+    txt(l, x, y + i * size * lh, size, color, { w, al, a });
+  });
+  return vis.length * size * lh;
+}
+function rr(x, y, w, h, r, fill, stroke, lw = 4, dash) {
+  if (w <= 0 || h <= 0) return;
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.save(); if (dash) ctx.setLineDash(dash); ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); ctx.restore(); }
+}
+function alpha(a, fn) { if (a <= 0) return; ctx.save(); ctx.globalAlpha *= clamp(a); fn(); ctx.restore(); }
+function etiqueta(s, x, y, size, color, fondo, borde, o = {}) {
+  ctx.save(); ctx.font = `${o.w ?? 700} ${size}px ${FONT}`;
+  const w = ctx.measureText(s).width + size * 1.4; ctx.restore();
+  const x0 = o.al === 'left' ? x : x - w / 2;
+  rr(x0, y - size * .95, w, size * 1.9, size * .95, fondo, borde, 3);
+  txt(s, x0 + w / 2, y + 2, size, color, { w: o.w ?? 700 });
+  return w;
+}
+
+/* ---------- datos (agenda inyectada por grabar.py) ---------- */
+let A = null, PERU = null;
+const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const hora = iso => iso.slice(11, 16);
+const fecha = iso => { const d = new Date(iso.slice(0, 10) + 'T12:00:00Z'); return { dd: d.getUTCDate(), ds: d.getUTCDay() }; };
+const diaCorto = iso => { const f = fecha(iso); return `${DIA[f.ds]} ${f.dd} nov`; };
+const parada = id => A.paradas.find(p => p.id === id);
+const tramo = id => A.tramos.find(t => t.id === id);
+const consultada = () => { const f = A.fuente.consultada.slice(0, 10).split('-'); return `${+f[2]}-nov-${f[0]}`; };
+const credito = id => { const f = A.fotos[id]; return f ? `Foto: ${f.autor} · ${f.licencia} · recortada` : ''; };
+
+/* Proyección de site/img/peru.svg: x=(lon+81.6)*20*cos(9.5°), y=(0.2-lat)*20 */
+const KX = 20 * Math.cos(9.5 * Math.PI / 180);
+const P = (lon, lat) => [(lon + 81.6) * KX, (0.2 - lat) * 20];
+const MAPA = { x: 40, y: 300, w: 1000, h: 880 }; // caja del mapa en pantalla
+let CAM = { cx: 130, cy: 190, k: 2.2 };
+const aPantalla = ([u, v], cam = CAM) => [MAPA.x + MAPA.w / 2 + (u - cam.cx) * cam.k, MAPA.y + MAPA.h / 2 + (v - cam.cy) * cam.k];
+function camLerp(a, b, u) {
+  const e = ease(u), k = Math.exp(lerp(Math.log(a.k), Math.log(b.k), e));
+  // el centro se mueve en proporción al zoom para que el viaje no maree
+  const m = (1 / k - 1 / a.k) / ((1 / b.k - 1 / a.k) || 1);
+  const t = Math.abs(b.k - a.k) < 1e-6 ? e : clamp(m);
+  return { cx: lerp(a.cx, b.cx, t), cy: lerp(a.cy, b.cy, t), k };
+}
+function encuadre(puntos, margen = .78, caja = MAPA) {
+  const us = puntos.map(p => p[0]), vs = puntos.map(p => p[1]);
+  const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs);
+  const k = Math.min(caja.w * margen / Math.max(u1 - u0, .01), caja.h * margen / Math.max(v1 - v0, .01));
+  // la caja puede ser solo una parte del mapa: se desplaza el centro para que los puntos caigan en ella
+  const dx = (caja.x + caja.w / 2) - (MAPA.x + MAPA.w / 2), dy = (caja.y + caja.h / 2) - (MAPA.y + MAPA.h / 2);
+  return { cx: (u0 + u1) / 2 - dx / k, cy: (v0 + v1) / 2 - dy / k, k };
+}
+const VISTAS = {};
+const TRASLADO_MIN = 80; // px: un traslado más corto apenas se vería; la cámara se acerca hasta ~2× esa longitud
+/* Cámara de un trozo de Lima: la vista general, o más cerca si dos lugares seguidos quedan juntos. */
+function vistaLima(tr) {
+  const pts = (tr.mapa?.paradas ?? []).map(id => parada(id)).map(p => P(p.lon, p.lat));
+  const tramos = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])).filter(x => x > 0);
+  if (!tramos.length || Math.min(...tramos) * VISTAS.lima.k >= TRASLADO_MIN) return VISTAS.lima;
+  const v = encuadre(pts, .84, LIMA_PUNTOS);
+  return { ...v, k: Math.max(v.k, TRASLADO_MIN * 2.5 / Math.min(...tramos)) };
+}
+const LIMA_PUNTOS = { x: 60, y: 880, w: 960, h: 190 }; // franja del mapa de Lima bajo la foto
+function prepararVistas() {
+  VISTAS.peru = { cx: 130, cy: 190, k: 2.15 };
+  const ba = tramo('buenosaires-lima');
+  VISTAS.sur = encuadre([P(ba.salida_lon, ba.salida_lat), P(-81.3, 0), P(-68.7, -18.3)], .8, { x: MAPA.x, y: MAPA.y + 40, w: MAPA.w, h: MAPA.h - 200 });
+  VISTAS.callao = { ...((p) => ({ cx: p[0], cy: p[1] }))(P(ba.llegada_lon, ba.llegada_lat)), k: 60 };
+  const lima = A.paradas.filter(p => p.ciudad_id === 'lima' && p.lat !== null && p.inicio < '2026-11-13');
+  VISTAS.lima = encuadre(lima.map(p => P(p.lon, p.lat)), .84, LIMA_PUNTOS);
+  const lc = tramo('lima-chiclayo');
+  VISTAS.norte = encuadre([P(lc.salida_lon, lc.salida_lat), P(lc.llegada_lon, lc.llegada_lat)], .8, { x: MAPA.x, y: MAPA.y + 230, w: MAPA.w, h: MAPA.h - 380 });
+}
+
+function dibujarMapa(cam, o = {}) {
+  const { reticula = false, costa = true } = o;
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h, 36); ctx.clip();
+  const g = ctx.createLinearGradient(0, MAPA.y, 0, MAPA.y + MAPA.h);
+  g.addColorStop(0, '#0E2150'); g.addColorStop(1, C.mar); ctx.fillStyle = g;
+  ctx.fillRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h);
+  if (reticula) {
+    ctx.strokeStyle = 'rgba(143,179,240,.13)'; ctx.lineWidth = 2;
+    for (let lon = -90; lon <= -40; lon += 10) { const [x] = aPantalla(P(lon, 0), cam); ctx.beginPath(); ctx.moveTo(x, MAPA.y); ctx.lineTo(x, MAPA.y + MAPA.h); ctx.stroke(); }
+    for (let lat = 10; lat >= -50; lat -= 10) { const [, y] = aPantalla(P(0, lat), cam); ctx.beginPath(); ctx.moveTo(MAPA.x, y); ctx.lineTo(MAPA.x + MAPA.w, y); ctx.stroke(); }
+  }
+  if (!costa) { ctx.fillStyle = C.tierra; ctx.fillRect(MAPA.x, MAPA.y, MAPA.w, MAPA.h); }
+  if (PERU && costa) {
+    ctx.save();
+    ctx.translate(MAPA.x + MAPA.w / 2, MAPA.y + MAPA.h / 2); ctx.scale(cam.k, cam.k); ctx.translate(-cam.cx, -cam.cy);
+    ctx.fillStyle = C.tierra; ctx.fill(PERU);
+    ctx.lineWidth = 3 / cam.k; ctx.strokeStyle = C.costa; ctx.stroke(PERU);
+    ctx.restore();
+  }
+  ctx.restore();
+  rr(MAPA.x, MAPA.y, MAPA.w, MAPA.h, 36, null, 'rgba(242,194,48,.55)', 3);
+}
+function punto(xy, r, color, a = 1, pulso = 0) {
+  alpha(a, () => {
+    const [x, y] = xy;
+    if (pulso > 0) { ctx.beginPath(); ctx.arc(x, y, r * (1 + pulso * 1.8), 0, Math.PI * 2); ctx.fillStyle = color + '44'; ctx.fill(); }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    ctx.lineWidth = r * .35; ctx.strokeStyle = C.blanco; ctx.stroke();
+  });
+}
+/* Traslado: línea RECTA punteada entre dos lugares de actos (no es la ruta real). */
+function traslado(a, b, u, color = C.oro) {
+  if (u <= 0) return;
+  const [x1, y1] = a, [x2, y2] = b;
+  ctx.save(); ctx.setLineDash([14, 12]); ctx.lineCap = 'round';
+  ctx.strokeStyle = color; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(lerp(x1, x2, u), lerp(y1, y2, u)); ctx.stroke();
+  ctx.restore();
+}
+/* Vuelo simulado: curva suave entre dos aeropuertos. */
+function curva(a, b, u, curv = .18) {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1];
+  const cx = mx - dy * curv, cy = my + dx * curv;
+  const q = t => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * cx + t * t * b[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * cy + t * t * b[1]];
+  return q(clamp(u));
+}
+function estela(a, b, u, curv, color = C.oro) {
+  if (u <= 0) return;
+  ctx.save(); ctx.setLineDash([16, 12]); ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); const n = 60;
+  for (let i = 0; i <= n * clamp(u); i++) { const [x, y] = curva(a, b, i / n, curv); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.restore();
+}
+function avion(xy, ang, k = 1) {
+  ctx.save(); ctx.translate(xy[0], xy[1]); ctx.rotate(ang); ctx.scale(k, k);
+  ctx.fillStyle = C.blanco; ctx.strokeStyle = C.bg; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(34, 0); ctx.quadraticCurveTo(30, -5, 20, -5); ctx.lineTo(4, -5); ctx.lineTo(-10, -30); ctx.lineTo(-20, -30);
+  ctx.lineTo(-10, -5); ctx.lineTo(-24, -5); ctx.lineTo(-32, -15); ctx.lineTo(-38, -15); ctx.lineTo(-33, 0);
+  ctx.lineTo(-38, 15); ctx.lineTo(-32, 15); ctx.lineTo(-24, 5); ctx.lineTo(-10, 5); ctx.lineTo(-20, 30); ctx.lineTo(-10, 30);
+  ctx.lineTo(4, 5); ctx.lineTo(20, 5); ctx.quadraticCurveTo(30, 5, 34, 0); ctx.closePath();
+  ctx.fill(); ctx.stroke(); ctx.restore();
+}
+function vuelo(a, b, u, curv) {
+  estela(a, b, u, curv);
+  const p = curva(a, b, u, curv), q = curva(a, b, Math.min(1, u + .01), curv), p0 = curva(a, b, Math.max(0, u - .01), curv);
+  const ang = Math.atan2(q[1] - p0[1], q[0] - p0[0]);
+  avion(p, ang, 1.25);
+}
+
+/* ---------- fotos ---------- */
+const FOTOS = {};
+function cargarFotos(ids) {
+  return Promise.all(ids.filter(Boolean).map(id => new Promise(res => {
+    const im = new Image(); im.onload = () => { FOTOS[id] = im; res(); }; im.onerror = () => res();
+    im.src = `../site/fotos/${id}-800.webp`;
+  })));
+}
+function foto(id, x, y, w, h, s, o = {}) {
+  const im = FOTOS[id]; if (!im) return;
+  const { zoom = .06, r = 28, pie = true } = o;
+  ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.clip();
+  const k = Math.max(w / im.width, h / im.height) * (1 + zoom * clamp(s / 6)); // acercamiento lento
+  const iw = im.width * k, ih = im.height * k;
+  ctx.drawImage(im, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+  if (pie) {
+    const g = ctx.createLinearGradient(0, y + h - 90, 0, y + h); g.addColorStop(0, 'rgba(5,10,30,0)'); g.addColorStop(1, 'rgba(5,10,30,.85)');
+    ctx.fillStyle = g; ctx.fillRect(x, y + h - 90, w, 90);
+  }
+  ctx.restore();
+  rr(x, y, w, h, r, null, 'rgba(255,255,255,.85)', 4);
+  if (pie) txt(credito(id), x + w - 22, y + h - 26, 26, C.blanco, { al: 'right', w: 500, max: w - 40 });
+}
+
+/* ---------- rótulos fijos de veracidad ---------- */
+const SIMULACION = 'Simulación del trayecto previsto · no es seguimiento en vivo';
+const TRASLADO = 'traslado · trayecto aproximado, no es la ruta real';
+function rotuloSimulacion(a = 1, y = MAPA.y + MAPA.h - 44) {
+  alpha(a, () => { rr(70, y - 30, 940, 60, 30, 'rgba(10,22,51,.92)', C.oro, 3);
+    txt(SIMULACION, 540, y + 1, 31, C.oro, { w: 700, max: 900 }); });
+}
+function rotuloTraslado(a = 1, y = MAPA.y + MAPA.h - 44) {
+  alpha(a, () => {
+    rr(110, y - 30, 860, 60, 30, 'rgba(10,22,51,.92)', C.oro, 3);
+    ctx.save(); ctx.setLineDash([10, 8]); ctx.strokeStyle = C.oro; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(140, y); ctx.lineTo(200, y); ctx.stroke(); ctx.restore();
+    txt(TRASLADO, 585, y + 1, 31, C.oro, { w: 700, max: 740 });
+  });
+}
+
+/* ---------- escenas ---------- */
+const ESCENAS = {
+  gancho(s, d, F) {
+    // mapa YA en movimiento: la ruta prevista de los 8 tramos se dibuja sobre el Perú
+    const cam = camLerp({ ...VISTAS.peru, k: VISTAS.peru.k * .92 }, VISTAS.peru, clamp(s / 3));
+    CAM = cam; dibujarMapa(cam);
+    const tramos = A.tramos.filter(t => t.destino_id !== 'roma');
+    const n = tramos.length, u = clamp(s / Math.max(F[1] + .6, 2.5)) * n;
+    tramos.forEach((t, i) => {
+      const a = aPantalla(P(t.salida_lon, t.salida_lat)), b = aPantalla(P(t.llegada_lon, t.llegada_lat));
+      if (t.origen_id === 'buenos_aires') return;
+      estela(a, b, clamp(u - i), .12, 'rgba(242,194,48,.9)');
+    });
+    Object.entries(A.ciudades).forEach(([id, c], i) => {
+      const xy = aPantalla(P(c.lon, c.lat)), ai = ap(s, .2 + i * .35, .3);
+      const lima = id === 'lima';
+      punto(xy, lima ? 16 : 12, lima ? C.rojo : C.blanco, ai, lima ? (s % 1.2) / 1.2 * ap(s, F[1], .3) : 0);
+      const izq = false, abajo = id === 'chiclayo';
+      txt(c.nombre, xy[0] + (izq ? -24 : 26), xy[1] + (id === 'succhabamba' ? -24 : abajo ? 26 : 0), lima ? 40 : 32,
+        lima ? C.blanco : C.mute, { al: izq ? 'right' : 'left', a: ai, sombra: true });
+    });
+    alpha(ap(s, 0, .3), () => {
+      rr(80, 330, 920, 150, 32, 'rgba(10,22,51,.88)', null);
+      txt('¿Por dónde pasará', 540, 375, 58, C.blanco, { w: 800 });
+      txt('León XIV en el Perú?', 540, 440, 58, C.oro, { w: 800 });
+    });
+    const dias = (new Date(A.hasta) - new Date(A.desde)) / 864e5 + 1;
+    alpha(ap(s, 1.2, .4), () => etiqueta(`${dias} días · ${Object.keys(A.ciudades).length} destinos · del ${fecha(A.llegada_peru).dd} al ${fecha(A.salida_roma).dd} de noviembre`,
+      540, 540, 34, C.blanco, C.azul, null));
+    rotuloSimulacion(ap(s, .1, .3));
+  },
+
+  vuelo(s, d, F, tr) {
+    const t = tramo(tr.mapa.tramos[0]);
+    const llega = Math.max(F[1] + 1.6, d * .72);
+    const z = clamp((s - llega + .9) / 1.6);
+    const cam = z > 0 ? camLerp(VISTAS.sur, VISTAS.callao, z) : VISTAS.sur;
+    CAM = cam; dibujarMapa(cam, { reticula: true });
+    const a = aPantalla(P(t.salida_lon, t.salida_lat)), b = aPantalla(P(t.llegada_lon, t.llegada_lat));
+    const u = ease(clamp((s - .4) / (llega - .4)));
+    punto(a, 13, C.blanco, 1);
+    txt(t.origen, a[0] - 24, a[1] - 34, 40, C.blanco, { al: 'right', sombra: true, a: 1 - z });
+    txt(`sale ${hora(t.salida)} (hora de Perú)`, a[0] - 24, a[1] + 16, 30, C.mute, { al: 'right', sombra: true, a: (1 - z) * ap(s, .3) });
+    punto(b, 14, C.rojo, ap(s, .6), (s % 1) * (1 - z));
+    txt('Callao', b[0] - 26, b[1] - 6, 40, C.blanco, { al: 'right', sombra: true, a: ap(s, .6) * (1 - z) });
+    vuelo(a, b, u, .16);
+    // reloj de la agenda
+    const p = parada('llegada-callao');
+    alpha(ap(s, F[1], .4), () => {
+      rr(250, 330, 580, 150, 32, 'rgba(10,22,51,.92)', C.oro, 3);
+      txt(diaCorto(p.inicio).toUpperCase(), 540, 372, 34, C.mute, { w: 700 });
+      txt(`${hora(p.inicio)} · aterriza`, 540, 432, 58, C.oro, { w: 800 });
+    });
+    alpha(ap(s, llega + .2, .4), () => {
+      parrafo(p.lugar.split(',')[0], 540, 820, 42, C.blanco, 820, { w: 700 });
+    });
+    rotuloSimulacion(1);
+  },
+
+  lima(s, d, F, tr) {
+    const ids = tr.mapa.paradas;
+    const nuevos = (window.GUION_DATOS?.[tr.id] ?? []).map(x => x.parada).filter(Boolean);
+    // del vuelo al mapa de Lima: el primer trozo de Lima viene del zoom del Callao
+    const previo = T.trozos[T.trozos.indexOf(tr) - 1];
+    // si dos lugares seguidos quedan demasiado juntos (Catedral → Plaza Mayor), la cámara se acerca a ese trozo
+    const desde = previo?.escena === 'vuelo' ? VISTAS.callao : previo?.escena === 'lima' ? vistaLima(previo) : VISTAS.lima;
+    const cam = camLerp(desde, vistaLima(tr), clamp(s / 1.4));
+    const caja = { ...MAPA };
+    // a escala de ciudad el contorno simplificado no sirve: esquema sin costa ni calles
+    const zc = previo?.escena === 'vuelo' ? clamp(s / 1.4) : 1;
+    CAM = cam; dibujarMapa(cam, { costa: zc < .5 });
+    const cuando = id => { const j = nuevos.indexOf(id); return j < 0 ? -1 : (F[j] ?? 0); };
+    let hayLinea = false;
+    ids.forEach((id, i) => {
+      const p = parada(id), xy = aPantalla(P(p.lon, p.lat)), t0 = cuando(id);
+      if (i > 0) {
+        const q = parada(ids[i - 1]), a = aPantalla(P(q.lon, q.lat));
+        // ningún traslado entre lugares distintos se omite por su distancia en pantalla
+        if (q.lugar !== p.lugar) { hayLinea = true; traslado(a, xy, ease((s - Math.max(t0, 0) + .2) / .9)); }
+      }
+      const ai = t0 < 0 ? 1 : ap(s, t0 + .5, .35);
+      const activo = t0 >= 0 && s >= t0 && (nuevos.indexOf(id) === nuevos.length - 1 || s < (F[nuevos.indexOf(id) + 1] ?? 1e9));
+      punto(xy, activo ? 17 : 12, activo ? C.rojo : C.blanco, ai, activo ? ((s - t0) % 1.1) / 1.1 : 0);
+    });
+    // nombre corto de cada lugar junto a su punto
+    const ABAJO = ['encuentro-plaza-catedral-lima', 'cena-obispos-nunciatura'];
+    ids.forEach((id) => {
+      const p = parada(id), xy = aPantalla(P(p.lon, p.lat)), t0 = cuando(id);
+      if (t0 < 0 && previo?.escena !== 'vuelo') return; // el punto de partida ya se nombró en la escena anterior
+      // el nombre que dice el guion («Catedral», «Plaza Mayor»); si no lo declara, el de la agenda abreviado
+      const dicho = window.GUION_DATOS?.[tr.id]?.find(x => x.parada === id)?.lugar;
+      const corto = dicho ?? p.lugar.replace(/\s*\(.*\)/, '').replace(/^Basílica /, '').split(',')[0];
+      const izq = xy[0] > MAPA.x + MAPA.w * .62;
+      const dy = ABAJO.includes(id) ? 40 : -34;
+      txt(corto, xy[0] + (izq ? -24 : 24), xy[1] + dy, 30, C.blanco, { al: izq ? 'right' : 'left', sombra: true, a: t0 < 0 ? .85 : ap(s, t0 + .6, .35), max: 460 });
+    });
+    if (hayLinea) rotuloTraslado(ap(s, .6, .4), caja.y + caja.h - 44);
+    // tarjeta del acto que se está nombrando
+    nuevos.forEach((id, j) => {
+      const p = parada(id), t0 = F[j], t1 = F[j + 1] ?? d + 1;
+      const a = ap(s, t0, .35) * (1 - ap(s, t1 - .1, .25));
+      alpha(a, () => {
+        const y = 322 + (1 - ap(s, t0, .35)) * 24;
+        rr(70, y, 940, 180, 30, 'rgba(10,22,51,.94)', C.oro, 3);
+        etiqueta(`${diaCorto(p.inicio)} · ${hora(p.inicio)}`, 110, y + 48, 34, C.bg, C.oro, null, { al: 'left', w: 800 });
+        parrafo(p.nombre, 110, y + 108, 34, C.blanco, 860, { al: 'left', w: 700, maxLineas: 2 });
+      });
+    });
+    // foto del lugar entre la tarjeta y los puntos, con acercamiento lento
+    if (tr.foto) alpha(ap(s, .5, .4), () => foto(tr.foto, 257, 518, 566, 300, s, { zoom: .12 }));
+    alpha(1, () => etiqueta(`${diaCorto(parada(nuevos[0] ?? ids[0]).inicio).toUpperCase()} · LIMA`, 540, 260, 30, C.oro, 'rgba(242,194,48,.12)', C.oro));
+  },
+
+  norte(s, d, F, tr) {
+    const t = tramo(tr.mapa.tramos[0]);
+    const cam = camLerp(VISTAS.lima, VISTAS.norte, clamp(s / 1.6));
+    CAM = cam; dibujarMapa(cam);
+    const a = aPantalla(P(t.salida_lon, t.salida_lat)), b = aPantalla(P(t.llegada_lon, t.llegada_lat));
+    const u = ease(clamp((s - 1.2) / Math.max(F[1] - .6, 2.2)));
+    punto(a, 12, C.blanco, 1);
+    txt('Lima y Callao', a[0] + 26, a[1], 36, C.blanco, { al: 'left', sombra: true, a: ap(s, 1.2) });
+    punto(b, 14, C.rojo, ap(s, 1.2), u >= 1 ? (s % 1) : 0);
+    txt(t.destino, b[0] + 28, b[1], 44, C.blanco, { al: 'left', sombra: true, a: ap(s, 1.2) });
+    if (s > 1.2) vuelo(a, b, u, -.2);
+    alpha(ap(s, .3, .4), () => {
+      rr(160, 330, 760, 150, 32, 'rgba(10,22,51,.92)', C.oro, 3);
+      txt(diaCorto(t.salida).toUpperCase(), 540, 372, 34, C.mute, { w: 700 });
+      txt(`${hora(t.salida)} → ${hora(t.llegada)} · ${t.origen} → ${t.destino}`, 540, 432, 46, C.oro, { w: 800, max: 700 });
+    });
+    if (tr.foto) alpha(ap(s, F[1] - .2, .4), () => foto(tr.foto, 600, 640, 390, 219, s - F[1], { pie: false }));
+    if (tr.foto) txt(credito(tr.foto), 990, 885, 24, C.blanco, { al: 'right', w: 500, sombra: true, a: ap(s, F[1] - .2, .4) });
+    alpha(ap(s, F[1] + .3, .4), () => etiqueta('Parte 2/3 · el norte', 330, 1050, 40, C.bg, C.oro, null, { w: 800 }));
+    rotuloSimulacion(1);
+  },
+
+  cierre(s, d, F, tr) {
+    const fin = tr.frases[tr.frases.length - 1].t1 - tr.t0 + .35;
+    alpha(1 - ap(s, fin, .4), () => {
+      CAM = VISTAS.peru; dibujarMapa(VISTAS.peru);
+      for (const p of A.paradas.filter(p => p.lat !== null && p.inicio < '2026-11-13')) punto(aPantalla(P(p.lon, p.lat)), 8, C.rojo, .9);
+      for (const [id, c] of Object.entries(A.ciudades)) if (id !== 'lima') punto(aPantalla(P(c.lon, c.lat)), 9, C.blanco, .6);
+      alpha(ap(s, 0, .4), () => {
+        rr(70, 330, 940, 190, 32, 'rgba(10,22,51,.94)', C.oro, 3);
+        txt('Agenda prevista', 540, 390, 60, C.oro, { w: 800 });
+        txt(`sujeto a cambios · consultada ${consultada()}`, 540, 465, 36, C.blanco, { w: 600 });
+      });
+      alpha(ap(s, F[1], .4), () => {
+        rr(70, 820, 940, 300, 32, 'rgba(10,22,51,.95)', C.blanco, 3);
+        parrafo('¿Qué lugar de Lima le mostrarías a alguien que nunca estuvo en el Perú?', 540, 900, 50, C.blanco, 840, { w: 800 });
+        txt('Te leo en comentarios', 540, 1070, 36, C.oro, { w: 700 });
+      });
+    });
+    alpha(ap(s, fin, .4), () => creditos(s - fin));
+  },
+};
+
+function creditos(s) {
+  const usadas = [...new Set([T.meta?.foto_portada, ...T.trozos.map(t => t.foto)].filter(Boolean))];
+  txt('Créditos', 540, 330, 64, C.oro, { w: 800 });
+  let y = 420;
+  const linea = (a, b) => {
+    txt(a, 540, y, 32, C.mute, { w: 700 }); y += 44;
+    y += parrafo(b, 540, y, 32, C.blanco, 900, { w: 500, maxLineas: 2 }) + 18;
+  };
+  linea('Agenda', `Programa oficial de la Santa Sede (press.vatican.va), consultado ${consultada()} · sujeto a cambios`);
+  linea('Mapa', 'Natural Earth (dominio público) · simulación del trayecto previsto, no es seguimiento en vivo');
+  txt('Fotos (Wikimedia Commons, recortadas)', 540, y, 32, C.mute, { w: 700 }); y += 46;
+  for (const id of usadas) {
+    const f = A.fotos[id];
+    txt(`${f.titulo.split(' (')[0]}: ${f.autor} · ${f.licencia}`, 540, y, 29, C.blanco, { w: 500, max: 940 }); y += 42;
+  }
+  y += 22;
+  linea('Voz', 'Fernando (voz sintetizada a partir de su grabación)');
+  linea('Música', 'coro original generado para este vídeo');
+  alpha(ap(s, .4, .4), () => { rr(170, y, 740, 120, 26, C.azul, null);
+    txt('Este vídeo: CC BY-SA 4.0', 540, y + 42, 40, C.blanco, { w: 800 });
+    txt('creativecommons.org/licenses/by-sa/4.0', 540, y + 88, 28, C.blanco, { w: 500 }); });
+}
+
+/* Portada fija (primeros 0,6 s y portada.png): título, foto y mapa con la ruta. */
+function portada() {
+  const m = T.meta || {};
+  const id = m.foto_portada;
+  if (FOTOS[id]) {
+    const im = FOTOS[id], k = Math.max(W / im.width, 1000 / im.height);
+    ctx.drawImage(im, (W - im.width * k) / 2, 0, im.width * k, im.height * k);
+    const g = ctx.createLinearGradient(0, 380, 0, 1000); g.addColorStop(0, 'rgba(10,22,51,0)'); g.addColorStop(1, C.bg);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, 1000);
+    const g2 = ctx.createLinearGradient(0, 0, 0, 260); g2.addColorStop(0, 'rgba(10,22,51,.85)'); g2.addColorStop(1, 'rgba(10,22,51,0)');
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, 260);
+  }
+  // franja blanca y oro (bandera vaticana) + acento azul del escudo
+  ctx.fillStyle = C.oro; ctx.fillRect(0, 0, W / 2, 16); ctx.fillStyle = C.blanco; ctx.fillRect(W / 2, 0, W / 2, 16);
+  txt('El papa León XIV', 540, 150, 76, C.blanco, { w: 800, sombra: true });
+  txt('en Perú', 540, 240, 76, C.oro, { w: 800, sombra: true });
+  etiqueta(`${m.parte || ''} · ${m.tramo || ''}`, 540, 840, 64, C.bg, C.oro, null, { w: 800 });
+  txt(`${m.fechas || ''} · agenda prevista`, 540, 940, 40, C.blanco, { w: 700 });
+  // mapa pequeño con la ruta de la parte
+  const caja = { x: 190, y: 1010, w: 700, h: 470 };
+  const viejo = { ...MAPA }; Object.assign(MAPA, caja);
+  const cam = encuadre([P(-81.4, -3.4), P(-68.6, -18.4), P(-77.11, -12.03)], .9, caja);
+  CAM = cam; dibujarMapa(cam);
+  const lc = tramo('lima-chiclayo'), lima = aPantalla(P(lc.salida_lon, lc.salida_lat)), chi = aPantalla(P(lc.llegada_lon, lc.llegada_lat));
+  const ba = tramo('buenosaires-lima'), sur = aPantalla(P(-71.5, -18.6));
+  estela(sur, lima, 1, .1); estela(lima, chi, 1, -.2);
+  avion(curva(sur, lima, .55, .1), Math.atan2(lima[1] - sur[1], lima[0] - sur[0]), 1);
+  punto(lima, 14, C.rojo, 1); punto(chi, 10, C.blanco, 1);
+  txt('Lima y Callao', lima[0] + 24, lima[1], 34, C.blanco, { al: 'left', sombra: true });
+  txt(`desde ${ba.origen}`, sur[0] - 10, sur[1] - 34, 28, C.mute, { al: 'right', sombra: true });
+  Object.assign(MAPA, viejo);
+  txt(SIMULACION, 540, 1530, 29, C.oro, { w: 700, max: 960 });
+  txt(credito(id), 540, 1580, 26, C.mute, { w: 500, max: 960 });
+}
+
+const RESALTA = /\d|XIV|Callao|Lima|Chiclayo|Palacio|Catedral|Monumental|Nunciatura|Teatro|Plaza|Mayor|Base|Aérea|prevista|cambiar/;
+let T = null, GOLPES = [];
+function preparar(tiempos, agenda, peru) {
+  T = tiempos; A = agenda; GOLPES = [];
+  if (peru) PERU = new Path2D(peru);
+  for (const tr of T.trozos) for (const f of tr.frases) for (const [g, a, b] of f.golpes) GOLPES.push({ g, a, b });
+  prepararVistas();
+  return cargarFotos([T.meta?.foto_portada, ...T.trozos.map(t => t.foto)]);
+}
+function subtitulo(t) {
+  let i = -1;
+  for (let k = 0; k < GOLPES.length; k++) if (GOLPES[k].a <= t) i = k;
+  if (i < 0) return;
+  const G = GOLPES[i], sig = GOLPES[i + 1];
+  if (t > G.b + .5 && (!sig || t < sig.a)) return;
+  const k = 1 + .06 * (1 - out((t - G.a) / .15));
+  const palabras = G.g.split(' ');
+  ctx.save(); ctx.translate(540, 1300); ctx.scale(k, k);
+  let px = 66; ctx.font = `800 ${px}px ${FONT}`;
+  let sp = ctx.measureText(' ').width;
+  let anchos = palabras.map(p => ctx.measureText(p).width), total = anchos.reduce((a, b) => a + b, 0) + sp * (palabras.length - 1);
+  if (total > 900) { px = Math.floor(px * 900 / total); ctx.font = `800 ${px}px ${FONT}`; sp = ctx.measureText(' ').width;
+    anchos = palabras.map(p => ctx.measureText(p).width); total = anchos.reduce((a, b) => a + b, 0) + sp * (palabras.length - 1); }
+  rr(-total / 2 - 32, -px * .85, total + 64, px * 1.7, 26, 'rgba(0,0,0,.78)');
+  let x = -total / 2;
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+  palabras.forEach((p, j) => {
+    ctx.lineWidth = 9; ctx.strokeStyle = '#000'; ctx.strokeText(p, x, 4);
+    ctx.fillStyle = RESALTA.test(p) ? C.oro : C.blanco; ctx.fillText(p, x, 4);
+    x += anchos[j] + sp;
+  });
+  ctx.restore();
+}
+function fondo() {
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(540, 760, 60, 540, 760, 1200);
+  g.addColorStop(0, C.bg2); g.addColorStop(1, C.bg); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function reelIr(t) {
+  fondo();
+  if (!T) return;
+  if (t < PORTADA) { portada(); return; }
+  let tr = T.trozos[0];
+  for (const x of T.trozos) if (t >= x.t0) tr = x;
+  const t0 = tr === T.trozos[0] ? PORTADA : tr.t0;
+  const s = t - t0, d = tr.t1 - t0, F = tr.frases.map(f => f.t0 - t0);
+  // barra de progreso y cabecera
+  rr(60, 70, 960, 10, 5, 'rgba(255,255,255,.15)'); rr(60, 70, 960 * clamp(t / T.duracion), 10, 5, C.oro);
+  txt(`LEÓN XIV EN PERÚ · ${T.meta?.parte ?? ''} · ${(T.meta?.tramo ?? '').toUpperCase()}`, 60, 125, 30, C.mute, { al: 'left', w: 700 });
+  alpha(ap(s, 0, .35), () => ESCENAS[tr.escena](s, d, F, tr));
+  subtitulo(t);
+  if (!(tr.escena === 'cierre' && s > tr.frases[tr.frases.length - 1].t1 - t0 + .35)) {
+    txt(`Agenda oficial de la Santa Sede · consultada ${consultada()} · sujeto a cambios`, 540, 1440, 28, C.mute, { w: 500, max: 960 });
+  }
+}
+window.reelIr = reelIr;
+window.reelPreparar = preparar;
+window.reelListo = window.TIEMPOS ? preparar(window.TIEMPOS, window.AGENDA, window.PERU_D) : Promise.resolve();
+window.reelListo.then(() => reelIr(0));
+</script>
+</body>
+</html>
