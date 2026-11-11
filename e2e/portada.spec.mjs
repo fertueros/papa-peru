@@ -6,8 +6,11 @@ import { expect, test } from "@playwright/test";
 const fixture = (f) => readFileSync(new URL(`fixtures/${f}`, import.meta.url), "utf8");
 const json = (body) => ({ status: 200, contentType: "application/json", body });
 
-async function abrir(page, { hora, vivo = fixture("vivo-vacio.json"), clima = fixture("clima.json") }) {
-  await page.route("**/data/agenda.json", (r) => r.fulfill(json(fixture("agenda.json"))));
+async function abrir(
+  page,
+  { hora, vivo = fixture("vivo-vacio.json"), clima = fixture("clima.json"), agenda = fixture("agenda.json") },
+) {
+  await page.route("**/data/agenda.json", (r) => r.fulfill(json(agenda)));
   await page.route("**/data/vivo.json", (r) => r.fulfill(json(vivo)));
   await page.route("**/data/clima.json", (r) =>
     clima === null ? r.fulfill({ status: 404, body: "no" }) : r.fulfill(json(clima)),
@@ -139,4 +142,100 @@ test.describe("C-21: móvil con hora de Madrid", () => {
     await expect(page.locator(".estado")).toHaveText("Ahora: Santa Misa en las Pampas de Pimentel");
     await expect(page.locator("#proxima")).toContainText("Próxima: 12:40");
   });
+});
+
+// P1 (revisión): ningún valor de los JSON se interpreta como HTML ni como enlace ejecutable.
+const XSS = '<img src=x onerror="window.__xss=1">';
+test("P1: un clima o una agenda con HTML o javascript: no ejecuta nada y omite el enlace", async ({ page }) => {
+  const dialogos = [];
+  page.on("dialog", (d) => {
+    dialogos.push(d.message());
+    d.dismiss();
+  });
+  const clima = JSON.parse(fixture("clima.json"));
+  clima.ciudades.chiclayo.temp = XSS;
+  clima.ciudades.chiclayo.lluvia_prob = "<img src=x onerror=alert(1)>";
+  clima.ciudades.chiclayo.dias["2026-11-13"] = { max: XSS, min: "<b>x</b>", lluvia_prob: XSS };
+  const agenda = JSON.parse(fixture("agenda.json"));
+  agenda.fuente.url = "javascript:alert(1)";
+  agenda.fotos.pimentel.fuente_url = "javascript:alert(2)";
+  agenda.fotos.pimentel.licencia_url = " JaVaScRiPt:alert(3)";
+  agenda.fotos.pimentel.autor = XSS;
+  await abrir(page, {
+    hora: "2026-11-13T10:50:00-05:00",
+    clima: JSON.stringify(clima),
+    agenda: JSON.stringify(agenda),
+  });
+  await expect(page.locator(".estado")).toHaveText("Ahora: Santa Misa en las Pampas de Pimentel");
+  // Números no finitos: el bloque del clima se oculta y el día de la agenda no lleva clima.
+  await expect(page.locator("#clima")).toBeHidden();
+  await expect(page.locator("#dia")).not.toContainText("°C");
+  // El texto del autor aparece literal, nunca como etiqueta.
+  await expect(page.locator("#foto-pie")).toContainText('<img src=x onerror="window.__xss=1">');
+  await expect(page.locator("main img, footer img, #dia img, #clima img, #foto-pie img")).toHaveCount(1);
+  // Ningún enlace con esquema distinto de http(s); el texto se conserva sin enlace.
+  const hrefs = await page.locator("a[href]").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+  expect(hrefs.filter((h) => !/^(https?:|#|\.\/|\/)/i.test(h.trim()))).toEqual([]);
+  await expect(page.locator("#fuente-agenda")).toContainText("Sala de Prensa de la Santa Sede");
+  await expect(page.locator("#fuente-agenda a")).toHaveCount(0);
+  await expect(page.locator("#foto-pie")).toContainText("CC BY-SA 4.0");
+  await expect(page.locator("#foto-pie a")).toHaveCount(0);
+  // En los créditos generales tampoco queda el enlace javascript: (solo el texto).
+  await expect(page.locator("#creditos-lista li", { hasText: "Pimentel" }).locator("a")).toHaveCount(0);
+  // Pulsar donde estaría el crédito no dispara nada.
+  await page.locator("#foto-pie").click();
+  expect(await page.evaluate(() => window.__xss)).toBeUndefined();
+  expect(dialogos).toEqual([]);
+});
+
+// P2 (revisión, R7/C-25): un clima.json legible pero inválido oculta solo el clima.
+test("C-25: clima con actualizado «fecha-invalida» oculta solo el clima y los refrescos siguen", async ({ page }) => {
+  const errores = [];
+  page.on("pageerror", (e) => errores.push(e.message));
+  const clima = JSON.parse(fixture("clima.json"));
+  clima.actualizado = "fecha-invalida";
+  await abrir(page, { hora: "2026-11-13T10:50:00-05:00", clima: JSON.stringify(clima) });
+  await expect(page.locator(".estado")).toHaveText("Ahora: Santa Misa en las Pampas de Pimentel");
+  await expect(page.locator("#proxima")).toContainText("Próxima: 12:40");
+  await expect(page.locator("#dia li").first()).toBeVisible();
+  await expect(page.locator("html")).not.toHaveClass(/cargando/);
+  await expect(page.locator("#clima")).toBeHidden();
+  await expect(page.locator("#foto")).toBeVisible();
+  await expect(page.locator("#mapa")).toBeVisible();
+  // El refresco (30 s) y la relectura de clima.json (60 s) siguen instalados.
+  await expect(page.locator("#proxima")).toContainText("en 1 h 50 min");
+  await page.clock.runFor(61000);
+  await expect(page.locator("#proxima")).toContainText("en 1 h 49 min");
+  expect(errores).toEqual([]);
+});
+
+// P2 (revisión, R7/C-25): la foto que falla no reaparece rota en el refresco siguiente.
+test("C-25: la foto que no carga sigue oculta tras el refresco", async ({ page }) => {
+  await page.route("**/fotos/**", (r) => r.fulfill({ status: 404, body: "no" }));
+  await abrir(page, { hora: "2026-11-13T10:50:00-05:00" });
+  await expect(page.locator(".estado")).toHaveText("Ahora: Santa Misa en las Pampas de Pimentel");
+  await expect(page.locator("#foto")).toBeHidden();
+  await page.clock.runFor(31000);
+  await expect(page.locator("#reloj")).toHaveText("10:50");
+  await page.clock.runFor(30000);
+  await expect(page.locator("#reloj")).toHaveText("10:51");
+  await expect(page.locator("#foto")).toBeHidden();
+});
+
+// P2 (revisión, R7/C-25): si falla el SVG del mapa se oculta solo el mapa, también al refrescar.
+test("C-25: sin el SVG del mapa se oculta solo el mapa", async ({ page }) => {
+  await page.route("**/img/peru.svg", (r) => r.fulfill({ status: 404, body: "no" }));
+  await abrir(page, { hora: "2026-11-13T10:50:00-05:00" });
+  await expect(page.locator(".estado")).toHaveText("Ahora: Santa Misa en las Pampas de Pimentel");
+  await expect(page.locator("#clima")).toBeVisible();
+  await expect(page.locator("#mapa")).toBeHidden();
+  await page.clock.runFor(61000);
+  await expect(page.locator("#reloj")).toHaveText("10:51");
+  await expect(page.locator("#mapa")).toBeHidden();
+});
+
+test("créditos: cada foto muestra los cambios hechos a la imagen", async ({ page }) => {
+  await abrir(page, { hora: "2026-11-13T10:50:00-05:00" });
+  await expect(page.locator("#foto-pie")).toContainText("recortada a 16:9 y comprimida");
+  await expect(page.locator("#creditos-lista li").first()).toContainText("recortada a 16:9 y comprimida");
 });

@@ -2,15 +2,22 @@
 // Refresca la cuenta atrás cada 30 s y vivo.json/clima.json cada 60 s, sin recargar.
 import { diaCorto, diaLargo, diaPeru, hora } from "./hora.js";
 import { antiguo, momento, proyectar, rotuloOrigen, textoProxima, titular } from "./momento.js";
+import { enlace, esc, fechaValida, num } from "./seguro.js";
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) =>
-  String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
 
-const estado = { agenda: null, vivo: null, clima: null, dia: null };
+// fotoRota: id de la foto cuya descarga falló (sigue oculta hasta otra foto o una carga buena).
+// mapaRoto: el SVG de fondo no cargó (el mapa sigue oculto en los refrescos).
+const estado = { agenda: null, vivo: null, clima: null, dia: null, fotoRota: null, mapaRoto: false };
+
+/** Pinta un bloque aislado: si falla, se oculta solo ese bloque y el resto sigue (R7/C-25). */
+function aislar(id, pintar) {
+  try {
+    pintar();
+  } catch {
+    $(id).hidden = true;
+  }
+}
 
 async function leer(nombre) {
   try {
@@ -33,7 +40,7 @@ function poner(el, html) {
 const etiquetaAntiguo = '<span class="antiguo">datos antiguos</span>';
 
 function enlaceMapa(lat, lon, lugar) {
-  if (lat === null || lat === undefined) {
+  if (num(lat) === null || num(lon) === null) {
     return `https://www.openstreetmap.org/search?query=${encodeURIComponent(lugar)}`;
   }
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
@@ -97,18 +104,24 @@ function pintarFoto(parada) {
   const base = `fotos/${parada.foto}`;
   if (img.dataset.id !== parada.foto) {
     img.dataset.id = parada.foto;
+    estado.fotoRota = null;
     img.onerror = () => {
+      estado.fotoRota = img.dataset.id;
       fig.hidden = true;
+    };
+    img.onload = () => {
+      if (estado.fotoRota === img.dataset.id) estado.fotoRota = null;
     };
     img.srcset = `${base}-480.webp 480w, ${base}-800.webp 800w`;
     img.sizes = "(min-width: 40rem) 27rem, 100vw";
     img.src = `${base}-800.webp`;
     img.alt = f.alt ?? `Imagen referencial: ${parada.lugar}`;
   }
-  const lic = f.licencia_url ? `<a href="${esc(f.licencia_url)}">${esc(f.licencia)}</a>` : esc(f.licencia);
-  const autor = f.fuente_url ? `<a href="${esc(f.fuente_url)}">${esc(f.autor)}</a>` : esc(f.autor);
-  poner($("foto-pie"), `Imagen referencial${f.titulo ? `: ${esc(f.titulo)}` : ""}. Foto: ${autor} · ${lic}`);
-  fig.hidden = false;
+  const lic = enlace(f.licencia_url, f.licencia);
+  const autor = enlace(f.fuente_url, f.autor);
+  const cambios = f.cambios ? ` · ${esc(f.cambios)}` : "";
+  poner($("foto-pie"), `Imagen referencial${f.titulo ? `: ${esc(f.titulo)}` : ""}. Foto: ${autor} · ${lic}${cambios}`);
+  fig.hidden = estado.fotoRota === parada.foto;
 }
 
 function pintarMapa(m) {
@@ -152,7 +165,7 @@ function pintarMapa(m) {
   poner($("mapa-marcas"), marcas.join(""));
   $("mapa-desc").textContent = titulo;
   poner($("mapa-pie"), pie);
-  $("mapa").hidden = false;
+  $("mapa").hidden = estado.mapaRoto;
 }
 
 function ciudadClima(m) {
@@ -166,12 +179,14 @@ function pintarClima(m, ahora) {
   const { clima, agenda } = estado;
   const id = ciudadClima(m);
   const c = id && clima?.ciudades?.[id];
-  if (!c) {
+  const temp = num(c?.temp);
+  const lluvia = num(c?.lluvia_prob);
+  if (!c || temp === null || lluvia === null || !fechaValida(clima.actualizado)) {
     $("clima").hidden = true;
     return;
   }
   const nombre = agenda.ciudades[id]?.nombre ?? id;
-  poner($("clima-ahora"), `${esc(nombre)}: ${c.temp} °C, ${esc(c.cielo)}, ${c.lluvia_prob} % de lluvia`);
+  poner($("clima-ahora"), `${esc(nombre)}: ${esc(temp)} °C, ${esc(c.cielo)}, ${esc(lluvia)} % de lluvia`);
   const viejo = antiguo(clima.actualizado, ahora) ? ` ${etiquetaAntiguo}` : "";
   poner($("clima-pie"), `pronóstico de Open-Meteo, ${hora(clima.actualizado)}${viejo}`);
   $("clima").hidden = false;
@@ -231,9 +246,11 @@ function pintarAgenda(m) {
     }
     const p = e.p;
     const cd = clima?.ciudades?.[p.ciudad_id]?.dias?.[estado.dia];
-    const climaTxt = cd
-      ? `<span class="clima-dia">${cd.max} °C / ${cd.min} °C · ${cd.lluvia_prob} % de lluvia</span>`
-      : "";
+    const [max, min, lluvia] = [num(cd?.max), num(cd?.min), num(cd?.lluvia_prob)];
+    const climaTxt =
+      max !== null && min !== null && lluvia !== null
+        ? `<span class="clima-dia">${esc(max)} °C / ${esc(min)} °C · ${esc(lluvia)} % de lluvia</span>`
+        : "";
     return `<li${p.id === actualId ? ' class="actual"' : ""}><span class="h">${hora(p.inicio)}</span>${esc(p.nombre)}<span class="clima-dia">${esc(p.lugar)} · ${esc(p.ciudad)}</span>${climaTxt}</li>`;
   });
   poner(
@@ -244,7 +261,7 @@ function pintarAgenda(m) {
 
 function pintarPie() {
   const { agenda } = estado;
-  poner($("fuente-agenda"), `Agenda: <a href="${esc(agenda.fuente.url)}">${esc(agenda.fuente.nombre)}</a>.`);
+  poner($("fuente-agenda"), `Agenda: ${enlace(agenda.fuente?.url, agenda.fuente?.nombre)}.`);
   const fotos = Object.entries(agenda.fotos ?? {});
   if (fotos.length) {
     poner(
@@ -252,7 +269,7 @@ function pintarPie() {
       fotos
         .map(
           ([, f]) =>
-            `<li>${esc(f.titulo ?? "")}: <a href="${esc(f.fuente_url)}">${esc(f.autor)}</a>, ${esc(f.licencia)}</li>`,
+            `<li>${esc(f.titulo ?? "")}: ${enlace(f.fuente_url, f.autor)}, ${enlace(f.licencia_url, f.licencia)}${f.cambios ? ` (${esc(f.cambios)})` : ""}</li>`,
         )
         .join(""),
     );
@@ -266,13 +283,10 @@ function render() {
   $("reloj").textContent = hora(ahora);
   const m = momento(estado.agenda, estado.vivo, ahora);
   pintarAhora(m, ahora);
-  pintarFoto(paradaVisible(m));
-  try {
-    pintarMapa(m);
-  } catch {
-    $("mapa").hidden = true;
-  }
-  pintarClima(m, ahora);
+  // Foto, mapa y clima son accesorios: su fallo oculta solo su bloque (R7/C-25).
+  aislar("foto", () => pintarFoto(paradaVisible(m)));
+  aislar("mapa", () => pintarMapa(m));
+  aislar("clima", () => pintarClima(m, ahora));
   pintarProxima(m);
   pintarAgenda(m);
   document.documentElement.classList.remove("cargando");
@@ -284,6 +298,18 @@ async function refrescar() {
   estado.clima = clima;
   render();
 }
+
+// El fondo del mapa se pide desde aquí, con los manejadores ya puestos, para no perder su error.
+const fondoMapa = $("mapa-fondo");
+fondoMapa.addEventListener("error", () => {
+  estado.mapaRoto = true;
+  $("mapa").hidden = true;
+});
+fondoMapa.addEventListener("load", () => {
+  estado.mapaRoto = false;
+  if (estado.agenda) render();
+});
+fondoMapa.setAttribute("href", "img/peru.svg");
 
 $("dias").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-dia]");
