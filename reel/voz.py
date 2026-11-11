@@ -97,7 +97,7 @@ def referencia_wav(mp3: Path, carpeta: Path) -> Path:
     return ref
 
 
-SIMULACION = Path("/home/fernando/Documentos/fundamentos-python-cd-fct/.runtime/simulacion")
+SIMULACION = Path(os.environ.get("REEL_SIMULACION", Path.home() / "Documentos" / "fundamentos-python-cd-fct" / ".runtime" / "simulacion"))
 PIPER = SIMULACION / "venv" / "bin" / "piper"
 VOCES_PIPER = SIMULACION / "voces"
 
