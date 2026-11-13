@@ -1,0 +1,106 @@
+name: vigilante
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: vigilante
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    # pages.yml must use the same Pages group, with cancel-in-progress: false.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      VIGILANTE_PAUSA: ${{ vars.VIGILANTE_PAUSA }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Probar vigilante
+        run: node --test vigilante/tests/
+      - name: Recuperar estado o preparar rama huérfana
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin vigilante-estado >/dev/null; then
+            git fetch --depth=1 origin vigilante-estado
+            git worktree add --detach estado FETCH_HEAD
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then exit "$status"; fi
+            git worktree add --detach estado HEAD
+            git -C estado switch --orphan vigilante-estado
+          fi
+      - name: Comprobar agenda inicial
+        id: inicial
+        shell: bash
+        run: |
+          if [ -f site/data/agenda.json ] || [ -f estado/agenda.json ]; then
+            echo 'listo=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'listo=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Esperando site/data/agenda.json de la unidad 001; no hay datos que publicar.'
+          fi
+      - name: Leer fuentes y guardar último bueno
+        if: ${{ steps.inicial.outputs.listo == 'true' }}
+        run: node vigilante/vuelta.mjs --estado estado --site site
+      - name: Persistir JSON de estado
+        if: ${{ steps.inicial.outputs.listo == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C estado config user.name 'github-actions[bot]'
+          git -C estado config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C estado add -- agenda.json clima.json vivo.json fallos.json resultado.json
+          if ! git -C estado diff --cached --quiet; then
+            git -C estado commit -m 'Actualizar estado del vigilante'
+            git -C estado push origin HEAD:refs/heads/vigilante-estado
+          fi
+      - name: Instalar herramientas de la portada si existen
+        if: ${{ hashFiles('package-lock.json') != '' }}
+        run: npm ci
+      - name: Construir portada si existe
+        if: ${{ hashFiles('scripts/build.mjs') != '' && hashFiles('site/index.html') != '' }}
+        run: node scripts/build.mjs
+      - name: Preparar datos públicos
+        if: ${{ steps.inicial.outputs.listo == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f dist/index.html ] && [ -f site/index.html ]; then
+            mkdir -p dist
+            cp -R site/. dist/
+          fi
+          mkdir -p dist/data
+          cp estado/agenda.json estado/clima.json estado/vivo.json dist/data/
+      - uses: actions/upload-pages-artifact@v3
+        if: ${{ hashFiles('dist/index.html') != '' }}
+        with:
+          path: dist
+      - name: Publicar último bueno antes de notificar
+        id: deploy
+        if: ${{ hashFiles('dist/index.html') != '' }}
+        uses: actions/deploy-pages@v4
+      - name: Notificar alerta de la vuelta
+        if: ${{ steps.inicial.outputs.listo == 'true' }}
+        run: |
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; if(JSON.parse(readFileSync('estado/resultado.json')).alerta) { console.error('El vigilante requiere revisión; consultar vivo.json.vuelta.'); process.exitCode=1; }"
