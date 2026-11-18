@@ -16,7 +16,7 @@
     "servir": "node e2e/servidor.mjs dist 8080"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.6",
+    "@biomejs/biome": "2.6.7",
     "@playwright/test": "1.65.0",
     "esbuild": "0.28.2"
   }
